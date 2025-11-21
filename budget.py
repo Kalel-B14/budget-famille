@@ -279,7 +279,46 @@ with tab1:
 
 # ===== ONGLET 2: TABLEAU REVENUS =====
 with tab2:
-    st.subheader(f"📋 Tableau des Revenus - {selected_year}")
+    col_header, col_button = st.columns([6, 1])
+    with col_header:
+        st.subheader(f"📋 Tableau des Revenus - {selected_year}")
+    with col_button:
+        st.write("")
+        if st.button("➕ Ajouter", key="add_rev_btn", type="primary"):
+            st.session_state.show_revenue_form = True
+    
+    # Pop-up pour ajouter un revenu
+    if st.session_state.get('show_revenue_form', False):
+        with st.form("quick_revenue_form", clear_on_submit=True):
+            st.write("**💰 Ajouter un Revenu**")
+            col1, col2 = st.columns(2)
+            with col1:
+                rev_source = st.selectbox("Source de revenu", 
+                                          options=['Salaire Principal', 'Salaire Conjoint', 
+                                                  'Primes', 'Revenus Complémentaires', 'Autre'],
+                                          key="quick_rev_source")
+                rev_amount = st.number_input("Montant (€)", min_value=0.01, step=50.0, key="quick_rev_amt")
+            with col2:
+                rev_month = st.selectbox("Mois", options=MOIS, key="quick_rev_month")
+                rev_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="quick_rev_year")
+            
+            col_submit, col_cancel = st.columns([1, 1])
+            with col_submit:
+                submitted = st.form_submit_button("💾 Enregistrer", use_container_width=True)
+            with col_cancel:
+                cancelled = st.form_submit_button("❌ Annuler", use_container_width=True)
+            
+            if submitted:
+                add_revenue_to_firestore(rev_source, rev_amount, rev_month, rev_year)
+                st.session_state.revenues = fetch_revenues_from_firestore()
+                st.session_state.show_revenue_form = False
+                st.success("✅ Revenu ajouté avec succès !")
+                time.sleep(1)
+                st.rerun()
+            
+            if cancelled:
+                st.session_state.show_revenue_form = False
+                st.rerun()
     
     if not df_revenues.empty and 'Année' in df_revenues.columns:
         df_rev_year = df_revenues[df_revenues['Année'] == selected_year].copy()
@@ -377,7 +416,49 @@ with tab2:
 
 # ===== ONGLET 3: TABLEAU DÉPENSES =====
 with tab3:
-    st.subheader(f"📋 Tableau des Dépenses - {selected_year}")
+    col_header, col_button = st.columns([6, 1])
+    with col_header:
+        st.subheader(f"📋 Tableau des Dépenses - {selected_year}")
+    with col_button:
+        st.write("")
+        if st.button("➕ Ajouter", key="add_exp_btn", type="primary"):
+            st.session_state.show_expense_form = True
+    
+    # Pop-up pour ajouter une dépense
+    if st.session_state.get('show_expense_form', False):
+        with st.form("quick_expense_form", clear_on_submit=True):
+            st.write("**💸 Ajouter une Dépense**")
+            col1, col2 = st.columns(2)
+            with col1:
+                exp_category = st.selectbox("Catégorie", options=CATEGORIES_DEPENSES, key="quick_exp_cat")
+                exp_amount = st.number_input("Montant (€)", min_value=0.01, step=5.0, key="quick_exp_amt")
+                exp_month = st.selectbox("Mois", options=MOIS, key="quick_exp_month")
+            with col2:
+                exp_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="quick_exp_year")
+                exp_frequency = st.selectbox("Fréquence", 
+                                            options=['Mensuel', 'Annuel', 'Trimestriel', 
+                                                    'Unique', 'Hebdomadaire'],
+                                            key="quick_exp_freq")
+                exp_description = st.text_input("Description (facultatif)", key="quick_exp_desc")
+            
+            col_submit, col_cancel = st.columns([1, 1])
+            with col_submit:
+                submitted = st.form_submit_button("💾 Enregistrer", use_container_width=True)
+            with col_cancel:
+                cancelled = st.form_submit_button("❌ Annuler", use_container_width=True)
+            
+            if submitted:
+                add_expense_to_firestore(exp_category, exp_amount, exp_frequency, 
+                                        exp_description, exp_month, exp_year)
+                st.session_state.expenses = fetch_expenses_from_firestore()
+                st.session_state.show_expense_form = False
+                st.success("✅ Dépense ajoutée avec succès !")
+                time.sleep(1)
+                st.rerun()
+            
+            if cancelled:
+                st.session_state.show_expense_form = False
+                st.rerun()
     
     if not df_expenses.empty and 'Année' in df_expenses.columns:
         df_exp_year = df_expenses[df_expenses['Année'] == selected_year].copy()
