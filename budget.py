@@ -1,57 +1,37 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from firebase_admin import initialize_app, credentials, firestore
-import os
+import json
 import time
+import os
+import random
+from datetime import datetime
 
 # --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(page_title="Budget Familial (Base de Données)", layout="wide")
+st.set_page_config(page_title="Budget Familial (Importation & Base de Données)", layout="wide")
 
-# --- INITIALISATION DE FIREBASE ---
-# La configuration Firebase (y compris les identifiants) est fournie
-# par l'environnement Canvas (__firebase_config).
-# Nous n'avons besoin d'initialiser firebase-admin qu'une seule fois.
-if 'db' not in st.session_state:
+# --- INITIALISATION DE FIREBASE (SIMULÉE) ET CHARGEMENT DES DONNÉES D'IMPORTATION ---
+if 'db_initialised' not in st.session_state:
+    st.session_state.db_initialised = False
+    st.session_state.data = []  # Stockage des dépenses pour la simulation
+    st.session_state.db = "Simulated Local DB"
+    st.session_state.user_id = "demo-user-" + str(random.randint(1000, 9999)) # ID utilisateur simulé
+    st.session_state.import_done = False # Drapeau pour l'importation
+
+    # Tenter de charger les données initiales du JSON
     try:
-        # Tente de charger les identifiants depuis l'environnement
-        firebase_config = os.environ.get('__firebase_config')
-        if firebase_config:
-            import json
-            config = json.loads(firebase_config)
-            
-            # Utilisation de credentials.Certificate pour firebase-admin (côté serveur)
-            # Les clés peuvent être intégrées directement si elles sont dans la config.
-            # Attention: En production réelle, on utiliserait un fichier de service account.
-            
-            # --- Pour cet environnement spécifique, nous allons supposer que l'initialisation
-            # --- est déjà gérée si le secret est présent, ou que nous utilisons un 
-            # --- système d'injection simplifié. 
-            
-            # Nous allons simuler l'accès à la base de données pour la démo.
-            # Dans un environnement Streamlit réel, vous devriez utiliser st.secrets ou 
-            # une librairie Streamlit-Firebase pour simplifier l'accès client.
-            
-            # *** REMPLACEMENT PAR UN ACCÈS FICTIF SIMULÉ POUR CE CONTEXTE ***
-            # Si nous étions dans un environnement de code complet, nous initialiserions
-            # l'app ici. Pour rester simple et fonctionnel dans cet environnement, 
-            # nous allons simuler les opérations Firestore.
-            
-            # Initialisation simplifiée pour la démo (ajustez si vous utilisez un environnement réel)
-            if not initialize_app():
-                st.session_state.db = "Firestore Simulé"
-            else:
-                st.session_state.db = firestore.client()
-                
+        if os.path.exists("initial_budget_data.json"):
+            with open("initial_budget_data.json", 'r', encoding='utf-8') as f:
+                initial_data = json.load(f)
+                st.session_state.initial_import_data = initial_data
+                st.session_state.db_initialised = True
         else:
-            # Mode déconnecté ou local (stockage simulé dans la session Streamlit)
-            st.session_state.db = "Simulated Local DB"
-            st.session_state.data = []
-
-        st.session_state.db_initialised = True
-        
+            st.session_state.initial_import_data = []
+            st.warning("Fichier 'initial_budget_data.json' non trouvé. Veuillez exécuter 'data_prep.py' d'abord.")
+            st.session_state.db_initialised = True # Initialisation de la session réussie
+            
     except Exception as e:
-        st.error(f"Erreur d'initialisation de Firebase/Firestore : {e}")
+        st.error(f"Erreur lors du chargement du fichier JSON d'importation : {e}")
         st.session_state.db_initialised = False
 
 
@@ -59,42 +39,64 @@ if 'db' not in st.session_state:
 
 def fetch_expenses():
     """Charge toutes les dépenses depuis la base de données (ou la session)."""
-    if st.session_state.db_initialised and st.session_state.db != "Simulated Local DB":
-        # Logique de chargement Firestore réelle (à implémenter pour un environnement réel)
-        st.warning("La lecture réelle de Firestore n'est pas implémentée dans cette démo. Lecture des données de session.")
-        return st.session_state.data
-    else:
-        # Retourne les données stockées dans la session pour la démo locale
-        return st.session_state.data
+    # Dans un vrai environnement Firestore, ceci serait un onSnapshot
+    return st.session_state.data
 
-def add_expense(category, amount, frequency, description):
+def add_expense(category, amount, frequency, description, timestamp=None):
     """Ajoute une nouvelle dépense à la base de données (ou la session)."""
     new_expense = {
         'Catégories': category,
         'Montant': float(amount),
         'Fréquence': frequency,
         'Description': description,
-        'Timestamp': time.time()
+        'Timestamp': timestamp if timestamp else time.time()
     }
     
-    if st.session_state.db_initialised and st.session_state.db != "Simulated Local DB":
-        # Logique d'écriture Firestore réelle
-        # Exemple: st.session_state.db.collection('expenses').add(new_expense)
-        st.warning("L'écriture réelle dans Firestore n'est pas implémentée dans cette démo.")
-        st.session_state.data.append(new_expense) # Ajout à la session pour la démo
-    else:
-        # Ajout aux données de session pour la démo locale
-        st.session_state.data.append(new_expense)
+    # Logique d'écriture : ici, nous écrivons dans la variable de session (simulation)
+    st.session_state.data.append(new_expense)
     
-    st.toast("Dépense ajoutée avec succès !", icon='✅')
+    if not timestamp: # N'afficher le toast que pour les ajouts manuels
+        st.toast("Dépense ajoutée avec succès !", icon='✅')
 
+def handle_import():
+    """Importe les données du fichier JSON dans la base de données de session."""
+    if st.session_state.initial_import_data and not st.session_state.import_done:
+        st.info(f"Importation de {len(st.session_state.initial_import_data)} transactions de l'historique...")
+        
+        # Effacer les données existantes avant l'importation
+        st.session_state.data = [] 
+        
+        for expense in st.session_state.initial_import_data:
+            # Injecter les données en utilisant le timestamp d'origine
+            add_expense(
+                expense['Catégories'], 
+                expense['Montant'], 
+                expense['Fréquence'], 
+                expense['Description'], 
+                timestamp=expense['Timestamp']
+            )
+        
+        st.session_state.import_done = True
+        st.toast("Importation de l'historique terminée !", icon='🎉')
+        st.rerun() # Recharger l'interface pour afficher les nouvelles données
 
 # --- INTERFACE UTILISATEUR ---
 
-st.title("💰 Suivi du Budget Familial (Base de Données en Ligne)")
+st.title("💰 Suivi du Budget Familial (Démo Firestore)")
+
+# 0. BOUTON D'IMPORTATION DE L'HISTORIQUE
+if st.session_state.initial_import_data and not st.session_state.import_done:
+    st.warning("Historique de budget trouvé ! Cliquez ci-dessous pour l'importer dans la base de données.")
+    if st.button("Importer les données historiques (2025/2026)"):
+        handle_import()
+        
+if not st.session_state.db_initialised:
+    st.error("L'application n'a pas pu s'initialiser correctement. Veuillez vérifier les fichiers.")
+    st.stop()
+
 
 # 1. FORMULAIRE D'AJOUT DE DÉPENSE
-with st.expander("➕ Ajouter une nouvelle dépense"):
+with st.expander("➕ Ajouter une nouvelle dépense manuelle"):
     with st.form("expense_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
@@ -108,7 +110,7 @@ with st.expander("➕ Ajouter une nouvelle dépense"):
         with col2:
             expense_frequency = st.selectbox(
                 "Fréquence",
-                options=['Mensuel', 'Annuel', 'Trimestriel', 'Unique']
+                options=['Mensuel', 'Annuel', 'Trimestriel', 'Unique', 'Hebdomadaire']
             )
             expense_description = st.text_input("Description (facultatif)")
         
@@ -133,8 +135,8 @@ if expenses_list:
     # Total Global
     total_spent = df_expenses['Montant'].sum()
 
-    st.header("Analyse des Dépenses")
-    st.metric(label="Total des Dépenses Enregistrées", value=f"{total_spent:,.2f} €")
+    st.header("Analyse des Dépenses Totales")
+    st.metric(label="Total des Dépenses Enregistrées (Historique + Manuelles)", value=f"{total_spent:,.2f} €")
 
     st.subheader("Répartition des Dépenses par Catégorie")
     
@@ -143,7 +145,7 @@ if expenses_list:
         df_agg, 
         values='Total Dépensé (€)', 
         names='Catégories', 
-        title='Pourcentage des Dépenses (Depuis le début)',
+        title='Pourcentage des Dépenses Totales',
         color_discrete_sequence=px.colors.sequential.Agsunset,
         hole=0.3
     )
@@ -151,8 +153,14 @@ if expenses_list:
     st.plotly_chart(fig_pie, use_container_width=True)
 
     st.subheader("Détail des Transactions")
+    # Tri par date, les entrées importées auront un Timestamp plus ancien (elles seront en bas)
+    df_display = df_expenses.sort_values(by='Timestamp', ascending=False)
+    
+    # Ajout d'une colonne de date formatée pour une meilleure lisibilité
+    df_display['Date Ajout'] = df_display['Timestamp'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M'))
+
     st.dataframe(
-        df_expenses[['Catégories', 'Montant', 'Fréquence', 'Description']].sort_values(by='Timestamp', ascending=False),
+        df_display[['Date Ajout', 'Catégories', 'Montant', 'Fréquence', 'Description']],
         column_config={
             "Montant": st.column_config.NumberColumn("Montant (€)", format="%.2f"),
         },
@@ -160,7 +168,7 @@ if expenses_list:
     )
     
 else:
-    st.info("Aucune dépense enregistrée. Ajoutez votre première dépense ci-dessus !")
+    st.info("Aucune dépense enregistrée. Importez l'historique ou ajoutez manuellement une dépense !")
 
 st.markdown("""
 <style>
