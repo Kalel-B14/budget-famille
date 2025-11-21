@@ -9,7 +9,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(page_title="Budget Familial Complet", layout="wide")
+st.set_page_config(page_title="Budget Familial", layout="wide", initial_sidebar_state="collapsed")
 
 # --- INITIALISATION DE FIREBASE ---
 if not firebase_admin._apps:
@@ -33,7 +33,6 @@ db = firestore.client()
 
 # --- FONCTIONS FIRESTORE ---
 def add_expense_to_firestore(category, amount, frequency, description, month, year, timestamp=None):
-    """Ajoute une dépense à Firestore."""
     expense_ref = db.collection('expenses').document()
     expense_ref.set({
         'Catégories': category,
@@ -46,7 +45,6 @@ def add_expense_to_firestore(category, amount, frequency, description, month, ye
     })
 
 def add_revenue_to_firestore(source, amount, month, year, timestamp=None):
-    """Ajoute un revenu à Firestore."""
     revenue_ref = db.collection('revenues').document()
     revenue_ref.set({
         'Source': source,
@@ -57,7 +55,6 @@ def add_revenue_to_firestore(source, amount, month, year, timestamp=None):
     })
 
 def update_expense_in_firestore(doc_id, category, amount, frequency, description, month, year):
-    """Met à jour une dépense dans Firestore."""
     expense_ref = db.collection('expenses').document(doc_id)
     expense_ref.update({
         'Catégories': category,
@@ -69,7 +66,6 @@ def update_expense_in_firestore(doc_id, category, amount, frequency, description
     })
 
 def update_revenue_in_firestore(doc_id, source, amount, month, year):
-    """Met à jour un revenu dans Firestore."""
     revenue_ref = db.collection('revenues').document(doc_id)
     revenue_ref.update({
         'Source': source,
@@ -79,15 +75,12 @@ def update_revenue_in_firestore(doc_id, source, amount, month, year):
     })
 
 def delete_expense_from_firestore(doc_id):
-    """Supprime une dépense de Firestore."""
     db.collection('expenses').document(doc_id).delete()
 
 def delete_revenue_from_firestore(doc_id):
-    """Supprime un revenu de Firestore."""
     db.collection('revenues').document(doc_id).delete()
 
 def fetch_expenses_from_firestore():
-    """Charge les dépenses depuis Firestore avec leurs IDs."""
     expenses_ref = db.collection('expenses')
     docs = expenses_ref.stream()
     expenses = []
@@ -98,7 +91,6 @@ def fetch_expenses_from_firestore():
     return expenses
 
 def fetch_revenues_from_firestore():
-    """Charge les revenus depuis Firestore avec leurs IDs."""
     revenues_ref = db.collection('revenues')
     docs = revenues_ref.stream()
     revenues = []
@@ -108,11 +100,23 @@ def fetch_revenues_from_firestore():
         revenues.append(data)
     return revenues
 
-# --- INITIALISATION SESSION ---
-if 'db_initialised' not in st.session_state:
-    st.session_state.db_initialised = True
-    st.session_state.expenses = fetch_expenses_from_firestore()
-    st.session_state.revenues = fetch_revenues_from_firestore()
+def save_user_preferences(user, year, months, tab):
+    """Sauvegarde les préférences utilisateur dans Firestore"""
+    pref_ref = db.collection('user_preferences').document(user)
+    pref_ref.set({
+        'selected_year': int(year),
+        'selected_months': months,
+        'active_tab': tab,
+        'last_update': time.time()
+    })
+
+def load_user_preferences(user):
+    """Charge les préférences utilisateur depuis Firestore"""
+    pref_ref = db.collection('user_preferences').document(user)
+    doc = pref_ref.get()
+    if doc.exists:
+        return doc.to_dict()
+    return None
 
 # --- VARIABLES ---
 MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
@@ -122,50 +126,235 @@ MOIS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
               'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 
 CATEGORIES_DEPENSES = [
-    'Compte Perso - Souliman',
-    'Compte Perso - Margaux',
-    'Essence',
-    'Loyer',
-    'Forfait Internet',
-    'Forfait Mobile',
-    'Crédit Voiture',
-    'Frais Bourso (Voitures, Maison, Hopital...)',
-    'Crédit Consomation',
-    'Engie (chauffage + élec)',
-    'Veolia (eau)',
-    'Assurance Maison',
-    'Frais Voiture (Réparation, Assurance...)',
-    'Anniversaires (Fêtes Noël, pacques...)',
-    'Olga',
-    'Épargne',
-    'École Clémence',
-    'Épargne Clémence',
-    'Marge compte',
-    'Courses',
-    'Autre'
+    'Compte Perso - Souliman', 'Compte Perso - Margaux', 'Essence', 'Loyer',
+    'Forfait Internet', 'Forfait Mobile', 'Crédit Voiture',
+    'Frais Bourso (Voitures, Maison, Hopital...)', 'Crédit Consomation',
+    'Engie (chauffage + élec)', 'Veolia (eau)', 'Assurance Maison',
+    'Frais Voiture (Réparation, Assurance...)', 'Anniversaires (Fêtes Noël, pacques...)',
+    'Olga', 'Épargne', 'École Clémence', 'Épargne Clémence', 'Marge compte',
+    'Courses', 'Autre'
 ]
 
 ANNEES = list(range(2020, 2031))
 
-# --- INTERFACE ---
-st.title("💰 Suivi du Budget Familial")
+# --- STYLES CSS ---
+st.markdown("""
+<style>
+    /* Dark Theme */
+    .stApp {
+        background-color: #1a1d24;
+        color: #e0e0e0;
+    }
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: #ffffff !important;
+    }
+    
+    /* Cards style */
+    .metric-card {
+        background: linear-gradient(135deg, #2d3142 0%, #1f2230 100%);
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        margin-bottom: 20px;
+    }
+    
+    /* User profile */
+    .user-profile {
+        text-align: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .user-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #ffffff;
+        margin: 0 auto 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .user-greeting {
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 500;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Tables */
+    .dataframe {
+        background-color: #2d3142 !important;
+        color: #e0e0e0 !important;
+    }
+    
+    /* Forms */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > select,
+    .stNumberInput > div > div > input {
+        background-color: #2d3142;
+        color: #e0e0e0;
+        border: 1px solid #3d4152;
+        border-radius: 8px;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: #1a1d24;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: #2d3142;
+        color: #e0e0e0;
+        border-radius: 10px 10px 0 0;
+        padding: 10px 20px;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 28px;
+        color: #ffffff;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #a0a0a0;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Sélection de l'année (en haut de la page)
-col_year, col_space = st.columns([1, 3])
+# --- SÉLECTION DU PROFIL ---
+if 'user_profile' not in st.session_state:
+    st.session_state.user_profile = None
+
+if st.session_state.user_profile is None:
+    st.markdown("<h1 style='text-align: center; margin-top: 100px;'>👥 Sélectionnez votre profil</h1>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        profile_col1, profile_col2 = st.columns(2)
+        
+        with profile_col1:
+            if st.button("👤 Margaux", use_container_width=True, key="profile_margaux"):
+                st.session_state.user_profile = "Margaux"
+                # Charger les préférences sauvegardées
+                prefs = load_user_preferences("Margaux")
+                if prefs:
+                    st.session_state.selected_year = prefs.get('selected_year', datetime.now().year)
+                    st.session_state.selected_months = prefs.get('selected_months', MOIS)
+                    st.session_state.active_tab = prefs.get('active_tab', 0)
+                else:
+                    st.session_state.selected_year = datetime.now().year
+                    st.session_state.selected_months = MOIS
+                    st.session_state.active_tab = 0
+                st.rerun()
+        
+        with profile_col2:
+            if st.button("👤 Souliman", use_container_width=True, key="profile_souliman"):
+                st.session_state.user_profile = "Souliman"
+                # Charger les préférences sauvegardées
+                prefs = load_user_preferences("Souliman")
+                if prefs:
+                    st.session_state.selected_year = prefs.get('selected_year', datetime.now().year)
+                    st.session_state.selected_months = prefs.get('selected_months', MOIS)
+                    st.session_state.active_tab = prefs.get('active_tab', 0)
+                else:
+                    st.session_state.selected_year = datetime.now().year
+                    st.session_state.selected_months = MOIS
+                    st.session_state.active_tab = 0
+                st.rerun()
+    st.stop()
+
+# --- INITIALISATION SESSION ---
+if 'db_initialised' not in st.session_state:
+    st.session_state.db_initialised = True
+    st.session_state.expenses = fetch_expenses_from_firestore()
+    st.session_state.revenues = fetch_revenues_from_firestore()
+
+if 'selected_year' not in st.session_state:
+    st.session_state.selected_year = datetime.now().year
+
+if 'selected_months' not in st.session_state:
+    st.session_state.selected_months = MOIS
+
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = 0
+
+# --- EN-TÊTE AVEC PROFIL UTILISATEUR ---
+col_profile, col_title, col_year = st.columns([1, 3, 1])
+
+with col_profile:
+    st.markdown(f"""
+    <div class="user-profile">
+        <div class="user-avatar">
+            👤
+        </div>
+        <div class="user-greeting">
+            Bonjour {st.session_state.user_profile}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🔄 Changer de profil", use_container_width=True):
+        st.session_state.user_profile = None
+        st.rerun()
+
+with col_title:
+    st.title("💰 Suivi du Budget Familial")
+
 with col_year:
-    selected_year = st.selectbox("📅 Année", options=ANNEES, index=ANNEES.index(datetime.now().year))
+    new_year = st.selectbox("📅 Année", options=ANNEES, index=ANNEES.index(st.session_state.selected_year), key="year_selector")
+    if new_year != st.session_state.selected_year:
+        st.session_state.selected_year = new_year
+        save_user_preferences(st.session_state.user_profile, new_year, st.session_state.selected_months, st.session_state.active_tab)
+        st.rerun()
 
 # --- ONGLETS PRINCIPAUX ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Tableau de Bord", "📋 Tableau Revenus", "📋 Tableau Dépenses", "➕ Ajouter", "📤 Importer Excel"])
+tabs = st.tabs(["📊 Tableau de Bord", "📋 Tableau Revenus", "📋 Tableau Dépenses", "📤 Importer Excel"])
+
+# Sauvegarder l'onglet actif
+current_tab = st.session_state.get('active_tab', 0)
 
 # ===== ONGLET 1: TABLEAU DE BORD =====
-with tab1:
+with tabs[0]:
     # Sélection du/des mois
-    selected_months = st.multiselect(
+    new_months = st.multiselect(
         "Sélectionner le(s) mois à analyser",
         options=MOIS,
-        default=MOIS
+        default=st.session_state.selected_months
     )
+    if new_months != st.session_state.selected_months:
+        st.session_state.selected_months = new_months
+        save_user_preferences(st.session_state.user_profile, st.session_state.selected_year, new_months, 0)
+    
+    selected_months = st.session_state.selected_months
+    selected_year = st.session_state.selected_year
     
     # Charger les données
     df_expenses = pd.DataFrame(st.session_state.expenses)
@@ -197,15 +386,23 @@ with tab1:
     taux_epargne = (reste_a_vivre / total_revenus * 100) if total_revenus > 0 else 0
     
     with col1:
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("💶 Revenus Totaux", f"{total_revenus:,.0f} €")
+        st.markdown("</div>", unsafe_allow_html=True)
     with col2:
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("💸 Dépenses Totales", f"{total_depenses:,.0f} €")
+        st.markdown("</div>", unsafe_allow_html=True)
     with col3:
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("✨ Reste à Vivre", f"{reste_a_vivre:,.0f} €", 
                   delta=f"{taux_epargne:.1f}%" if reste_a_vivre >= 0 else None)
+        st.markdown("</div>", unsafe_allow_html=True)
     with col4:
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         pourcentage_depense = (total_depenses / total_revenus * 100) if total_revenus > 0 else 0
         st.metric("📊 % Revenu Dépensé", f"{pourcentage_depense:.0f}%")
+        st.markdown("</div>", unsafe_allow_html=True)
     
     st.divider()
     
@@ -213,47 +410,53 @@ with tab1:
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
-        st.markdown("""
-        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-        """, unsafe_allow_html=True)
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.subheader("Revenus vs Dépenses")
         if not df_expenses_filtered.empty or not df_revenues_filtered.empty:
             fig_comparison = go.Figure(data=[
                 go.Bar(name='Revenus', x=['Période sélectionnée'], y=[total_revenus], 
-                       marker_color='#4472C4', text=[f'{total_revenus:,.0f} €'], 
+                       marker_color='#667eea', text=[f'{total_revenus:,.0f} €'], 
                        textposition='outside'),
                 go.Bar(name='Dépenses', x=['Période sélectionnée'], y=[total_depenses], 
-                       marker_color='#C5CAE9', text=[f'{total_depenses:,.0f} €'], 
+                       marker_color='#764ba2', text=[f'{total_depenses:,.0f} €'], 
                        textposition='outside')
             ])
-            fig_comparison.update_layout(barmode='group', height=350, showlegend=True)
+            fig_comparison.update_layout(
+                barmode='group', 
+                height=350, 
+                showlegend=True,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#e0e0e0')
+            )
             st.plotly_chart(fig_comparison, use_container_width=True)
         else:
             st.info("Aucune donnée disponible")
         st.markdown("</div>", unsafe_allow_html=True)
     
     with col_g2:
-        st.markdown("""
-        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-        """, unsafe_allow_html=True)
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.subheader("Répartition des Dépenses")
         if not df_expenses_filtered.empty:
             df_cat = df_expenses_filtered.groupby('Catégories')['Montant'].sum().reset_index()
             fig_pie = px.pie(df_cat, values='Montant', names='Catégories',
-                            color_discrete_sequence=px.colors.sequential.Blues_r,
+                            color_discrete_sequence=px.colors.sequential.Purples_r,
                             hole=0.4)
             fig_pie.update_traces(textposition='inside', textinfo='percent+label+value', 
                                  texttemplate='%{label}<br>%{value:,.0f}€<br>%{percent}')
-            fig_pie.update_layout(height=350)
+            fig_pie.update_layout(
+                height=350,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#e0e0e0')
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Aucune dépense enregistrée")
         st.markdown("</div>", unsafe_allow_html=True)
     
     # Graphique mensuel
-    st.markdown("""
-    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-top: 20px;">
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
     st.subheader(f"Évolution Mensuelle - {selected_year}")
     
     if not df_expenses.empty and 'Année' in df_expenses.columns:
@@ -268,20 +471,28 @@ with tab1:
     
     fig_monthly = go.Figure()
     fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_revenues, name='Revenus', 
-                                 marker_color='#4472C4', text=[f'{v:,.0f}€' for v in monthly_revenues],
+                                 marker_color='#667eea', text=[f'{v:,.0f}€' for v in monthly_revenues],
                                  textposition='outside'))
     fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_expenses, name='Dépenses', 
-                                 marker_color='#C5CAE9', text=[f'{v:,.0f}€' for v in monthly_expenses],
+                                 marker_color='#764ba2', text=[f'{v:,.0f}€' for v in monthly_expenses],
                                  textposition='outside'))
-    fig_monthly.update_layout(barmode='group', height=400, xaxis_title="Mois", yaxis_title="Montant (€)")
+    fig_monthly.update_layout(
+        barmode='group', 
+        height=400, 
+        xaxis_title="Mois", 
+        yaxis_title="Montant (€)",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#e0e0e0')
+    )
     st.plotly_chart(fig_monthly, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===== ONGLET 2: TABLEAU REVENUS =====
-with tab2:
+with tabs[1]:
     col_header, col_button = st.columns([6, 1])
     with col_header:
-        st.subheader(f"📋 Tableau des Revenus - {selected_year}")
+        st.subheader(f"📋 Tableau des Revenus - {st.session_state.selected_year}")
     with col_button:
         st.write("")
         if st.button("➕ Ajouter", key="add_rev_btn", type="primary"):
@@ -300,7 +511,7 @@ with tab2:
                 rev_amount = st.number_input("Montant (€)", min_value=0.01, step=50.0, key="quick_rev_amt")
             with col2:
                 rev_month = st.selectbox("Mois", options=MOIS, key="quick_rev_month")
-                rev_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="quick_rev_year")
+                rev_year = st.number_input("Année", min_value=2020, max_value=2030, value=st.session_state.selected_year, key="quick_rev_year")
             
             col_submit, col_cancel = st.columns([1, 1])
             with col_submit:
@@ -321,9 +532,10 @@ with tab2:
                 st.rerun()
     
     if not df_revenues.empty and 'Année' in df_revenues.columns:
-        df_rev_year = df_revenues[df_revenues['Année'] == selected_year].copy()
+        df_rev_year = df_revenues[df_revenues['Année'] == st.session_state.selected_year].copy()
         
         if not df_rev_year.empty:
+            st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
             # Créer un tableau pivot
             pivot_data = []
             sources = df_rev_year['Source'].unique()
@@ -357,12 +569,12 @@ with tab2:
             
             df_pivot = pd.DataFrame(pivot_data)
             st.dataframe(df_pivot, use_container_width=True, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             
             # Section Modification/Suppression
             st.divider()
             st.write("**Modifier ou Supprimer un Revenu**")
             
-            # Préparer les options pour le selectbox
             df_rev_display = df_rev_year[['Source', 'Montant', 'Mois', 'doc_id']].copy()
             df_rev_display['Display'] = df_rev_display.apply(
                 lambda x: f"{x['Source']} - {x['Montant']:.0f}€ - {x['Mois']}", axis=1
@@ -394,7 +606,7 @@ with tab2:
                         new_month = st.selectbox("Mois", options=MOIS, index=MOIS.index(rev_data['Mois']))
                         
                         if st.form_submit_button("💾 Enregistrer les modifications"):
-                            update_revenue_in_firestore(rev_data['doc_id'], new_source, new_amount, new_month, selected_year)
+                            update_revenue_in_firestore(rev_data['doc_id'], new_source, new_amount, new_month, st.session_state.selected_year)
                             st.session_state.revenues = fetch_revenues_from_firestore()
                             st.success("✅ Revenu modifié !")
                             time.sleep(1)
@@ -410,15 +622,15 @@ with tab2:
                         time.sleep(1)
                         st.rerun()
         else:
-            st.info(f"Aucun revenu enregistré pour {selected_year}")
+            st.info(f"Aucun revenu enregistré pour {st.session_state.selected_year}")
     else:
         st.info("Aucun revenu enregistré")
 
 # ===== ONGLET 3: TABLEAU DÉPENSES =====
-with tab3:
+with tabs[2]:
     col_header, col_button = st.columns([6, 1])
     with col_header:
-        st.subheader(f"📋 Tableau des Dépenses - {selected_year}")
+        st.subheader(f"📋 Tableau des Dépenses - {st.session_state.selected_year}")
     with col_button:
         st.write("")
         if st.button("➕ Ajouter", key="add_exp_btn", type="primary"):
@@ -434,7 +646,7 @@ with tab3:
                 exp_amount = st.number_input("Montant (€)", min_value=0.01, step=5.0, key="quick_exp_amt")
                 exp_month = st.selectbox("Mois", options=MOIS, key="quick_exp_month")
             with col2:
-                exp_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="quick_exp_year")
+                exp_year = st.number_input("Année", min_value=2020, max_value=2030, value=st.session_state.selected_year, key="quick_exp_year")
                 exp_frequency = st.selectbox("Fréquence", 
                                             options=['Mensuel', 'Annuel', 'Trimestriel', 
                                                     'Unique', 'Hebdomadaire'],
@@ -461,9 +673,10 @@ with tab3:
                 st.rerun()
     
     if not df_expenses.empty and 'Année' in df_expenses.columns:
-        df_exp_year = df_expenses[df_expenses['Année'] == selected_year].copy()
+        df_exp_year = df_expenses[df_expenses['Année'] == st.session_state.selected_year].copy()
         
         if not df_exp_year.empty:
+            st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
             # Créer un tableau pivot
             pivot_data = []
             categories = df_exp_year['Catégories'].unique()
@@ -497,12 +710,12 @@ with tab3:
             
             df_pivot = pd.DataFrame(pivot_data)
             st.dataframe(df_pivot, use_container_width=True, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             
             # Section Modification/Suppression
             st.divider()
             st.write("**Modifier ou Supprimer une Dépense**")
             
-            # Préparer les options
             df_exp_display = df_exp_year[['Catégories', 'Montant', 'Mois', 'Description', 'doc_id']].copy()
             df_exp_display['Display'] = df_exp_display.apply(
                 lambda x: f"{x['Catégories']} - {x['Montant']:.0f}€ - {x['Mois']} - {x['Description']}", axis=1
@@ -535,7 +748,7 @@ with tab3:
                         new_desc = st.text_input("Description", value=exp_data.get('Description', ''))
                         
                         if st.form_submit_button("💾 Enregistrer les modifications"):
-                            update_expense_in_firestore(exp_data['doc_id'], new_cat, new_amount, new_freq, new_desc, new_month, selected_year)
+                            update_expense_in_firestore(exp_data['doc_id'], new_cat, new_amount, new_freq, new_desc, new_month, st.session_state.selected_year)
                             st.session_state.expenses = fetch_expenses_from_firestore()
                             st.success("✅ Dépense modifiée !")
                             time.sleep(1)
@@ -551,60 +764,18 @@ with tab3:
                         time.sleep(1)
                         st.rerun()
         else:
-            st.info(f"Aucune dépense enregistrée pour {selected_year}")
+            st.info(f"Aucune dépense enregistrée pour {st.session_state.selected_year}")
     else:
         st.info("Aucune dépense enregistrée")
 
-# ===== ONGLET 4: AJOUTER DES DONNÉES =====
-with tab4:
-    col_add1, col_add2 = st.columns(2)
-    
-    # AJOUTER UN REVENU
-    with col_add1:
-        st.subheader("💰 Ajouter un Revenu")
-        with st.form("revenue_form", clear_on_submit=True):
-            rev_source = st.selectbox("Source de revenu", 
-                                      options=['Salaire Principal', 'Salaire Conjoint', 
-                                              'Primes', 'Revenus Complémentaires', 'Autre'])
-            rev_amount = st.number_input("Montant (€)", min_value=0.01, step=50.0, key="rev_amt")
-            rev_month = st.selectbox("Mois", options=MOIS, key="rev_month")
-            rev_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="rev_year")
-            
-            if st.form_submit_button("💾 Enregistrer le Revenu"):
-                add_revenue_to_firestore(rev_source, rev_amount, rev_month, rev_year)
-                st.session_state.revenues = fetch_revenues_from_firestore()
-                st.success("✅ Revenu ajouté avec succès !")
-                time.sleep(1)
-                st.rerun()
-    
-    # AJOUTER UNE DÉPENSE
-    with col_add2:
-        st.subheader("💸 Ajouter une Dépense")
-        with st.form("expense_form", clear_on_submit=True):
-            exp_category = st.selectbox("Catégorie", options=CATEGORIES_DEPENSES)
-            exp_amount = st.number_input("Montant (€)", min_value=0.01, step=5.0, key="exp_amt")
-            exp_month = st.selectbox("Mois", options=MOIS, key="exp_month")
-            exp_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="exp_year")
-            exp_frequency = st.selectbox("Fréquence", 
-                                        options=['Mensuel', 'Annuel', 'Trimestriel', 
-                                                'Unique', 'Hebdomadaire'])
-            exp_description = st.text_input("Description (facultatif)")
-            
-            if st.form_submit_button("💾 Enregistrer la Dépense"):
-                add_expense_to_firestore(exp_category, exp_amount, exp_frequency, 
-                                        exp_description, exp_month, exp_year)
-                st.session_state.expenses = fetch_expenses_from_firestore()
-                st.success("✅ Dépense ajoutée avec succès !")
-                time.sleep(1)
-                st.rerun()
-
-# ===== ONGLET 5: IMPORT EXCEL =====
-with tab5:
+# ===== ONGLET 4: IMPORT EXCEL =====
+with tabs[3]:
     st.subheader("📤 Importer des données depuis Excel")
     
     col_imp1, col_imp2 = st.columns(2)
     
     with col_imp1:
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.write("**Format attendu pour les DÉPENSES :**")
         st.code("Catégorie | Montant | Fréquence | Mois | Année | Description")
         st.info("⚠️ IMPORTANT: La colonne doit s'appeler 'Catégorie' (sans s) et respecter exactement les noms des catégories.")
@@ -632,7 +803,7 @@ with tab5:
                             row.get('Fréquence', 'Unique'),
                             row.get('Description', ''),
                             row.get('Mois', 'Janvier'),
-                            int(row.get('Année', row.get('Annee', selected_year)))
+                            int(row.get('Année', row.get('Annee', st.session_state.selected_year)))
                         )
                         imported_count += 1
                     st.session_state.expenses = fetch_expenses_from_firestore()
@@ -641,8 +812,10 @@ with tab5:
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {str(e)}")
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col_imp2:
+        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.write("**Format attendu pour les REVENUS :**")
         st.code("Source | Montant | Mois | Année")
         uploaded_revenues = st.file_uploader("Importer les revenus (.xlsx)", 
@@ -659,7 +832,7 @@ with tab5:
                             row.get('Source', 'Autre'),
                             float(row.get('Montant', 0)),
                             row.get('Mois', 'Janvier'),
-                            int(row.get('Année', selected_year))
+                            int(row.get('Année', row.get('Annee', st.session_state.selected_year)))
                         )
                     st.session_state.revenues = fetch_revenues_from_firestore()
                     st.success(f"✅ {len(df_import_rev)} revenus importés !")
@@ -667,9 +840,4 @@ with tab5:
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {str(e)}")
-
-st.markdown("""
-<style>
-.stApp { padding-bottom: 2rem; }
-</style>
-""", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
