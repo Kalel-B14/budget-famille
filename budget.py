@@ -14,26 +14,28 @@ st.set_page_config(page_title="Budget Familial (Importation & Base de Données)"
 
 # --- INITIALISATION DE FIREBASE ---
 
-# Récupérer les secrets de Firebase depuis Streamlit Cloud
-firebase_secrets = st.secrets["firebase"]
+# Vérifier si Firebase a déjà été initialisé
+if not firebase_admin._apps:
+    # Récupérer les secrets de Firebase depuis Streamlit Cloud
+    firebase_secrets = st.secrets["firebase"]
 
-# Créer un dictionnaire à partir des secrets pour utiliser Firebase
-cred_dict = {
-    "type": firebase_secrets["type"],
-    "project_id": firebase_secrets["project_id"],
-    "private_key_id": firebase_secrets["private_key_id"],
-    "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),  # Le format de la clé privée est spécial
-    "client_email": firebase_secrets["client_email"],
-    "client_id": firebase_secrets["client_id"],
-    "auth_uri": firebase_secrets["auth_uri"],
-    "token_uri": firebase_secrets["token_uri"],
-    "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
-    "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
-}
+    # Créer un dictionnaire à partir des secrets pour utiliser Firebase
+    cred_dict = {
+        "type": firebase_secrets["type"],
+        "project_id": firebase_secrets["project_id"],
+        "private_key_id": firebase_secrets["private_key_id"],
+        "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),  # Le format de la clé privée est spécial
+        "client_email": firebase_secrets["client_email"],
+        "client_id": firebase_secrets["client_id"],
+        "auth_uri": firebase_secrets["auth_uri"],
+        "token_uri": firebase_secrets["token_uri"],
+        "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
+    }
 
-# Initialiser Firebase avec les secrets
-cred = credentials.Certificate(cred_dict)
-firebase_admin.initialize_app(cred)
+    # Initialiser Firebase avec les secrets (en spécifiant un nom unique pour éviter l'erreur de réinitialisation)
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred, name="budget-famille-app")  # Ajout d'un nom unique pour l'application
 
 # Accéder à Firestore
 db = firestore.client()
