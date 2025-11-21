@@ -3,4 +3,5 @@ pandas
 plotly
 openpyxl
 sqlalchemy
-firebase-admin
+firebase-admin==6.2.0
+
