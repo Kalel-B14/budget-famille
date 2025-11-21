@@ -108,15 +108,15 @@ with tab1:
     df_revenues = pd.DataFrame(st.session_state.revenues)
     
     # Filtrer par mois sélectionnés
-    if not df_expenses.empty and selected_months:
+    if not df_expenses.empty and 'Mois' in df_expenses.columns and selected_months:
         df_expenses_filtered = df_expenses[df_expenses['Mois'].isin(selected_months)]
     else:
-        df_expenses_filtered = df_expenses
+        df_expenses_filtered = df_expenses.copy() if not df_expenses.empty else pd.DataFrame()
     
-    if not df_revenues.empty and selected_months:
+    if not df_revenues.empty and 'Mois' in df_revenues.columns and selected_months:
         df_revenues_filtered = df_revenues[df_revenues['Mois'].isin(selected_months)]
     else:
-        df_revenues_filtered = df_revenues
+        df_revenues_filtered = df_revenues.copy() if not df_revenues.empty else pd.DataFrame()
     
     # --- MÉTRIQUES PRINCIPALES ---
     col1, col2, col3, col4 = st.columns(4)
@@ -271,13 +271,13 @@ with tab4:
     st.subheader("📈 Analyses Mensuelles Détaillées")
     
     # Préparer les données mensuelles
-    if not df_expenses.empty:
+    if not df_expenses.empty and 'Mois' in df_expenses.columns:
         df_expenses['Mois_idx'] = df_expenses['Mois'].apply(lambda x: MOIS.index(x) if x in MOIS else 0)
         monthly_expenses = df_expenses.groupby('Mois')['Montant'].sum().reindex(MOIS, fill_value=0)
     else:
         monthly_expenses = pd.Series(0, index=MOIS)
     
-    if not df_revenues.empty:
+    if not df_revenues.empty and 'Mois' in df_revenues.columns:
         df_revenues['Mois_idx'] = df_revenues['Mois'].apply(lambda x: MOIS.index(x) if x in MOIS else 0)
         monthly_revenues = df_revenues.groupby('Mois')['Montant'].sum().reindex(MOIS, fill_value=0)
     else:
