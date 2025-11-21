@@ -6,110 +6,59 @@ import time
 import os
 import random
 from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(page_title="Budget Familial (Importation & Base de Données)", layout="wide")
 
-# --- FONCTIONS DE GESTION DES DONNÉES PERSISTANTES (SIMULÉES) ---
+# --- INITIALISATION DE FIREBASE ---
+# Remplacez par le chemin vers votre fichier de clé JSON téléchargé
+cred = credentials.Certificate("path/to/your/firebase-key.json")  # Mettez le bon chemin du fichier
+firebase_admin.initialize_app(cred)
 
-def save_data_to_file():
-    """Sauvegarde les données dans un fichier JSON."""
-    try:
-        with open("budget_data.json", "w", encoding="utf-8") as f:
-            json.dump(st.session_state.data, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        st.error(f"Erreur lors de la sauvegarde des données : {e}")
+# Accéder à Firestore
+db = firestore.client()
 
-def load_data_from_file():
-    """Charge les données depuis le fichier JSON."""
-    if os.path.exists("budget_data.json"):
-        try:
-            with open("budget_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            st.error(f"Erreur lors du chargement des données : {e}")
-            return []
-    return []
+# --- FONCTIONS DE GESTION DES DONNÉES FIRESTORE ---
 
-def add_expense(category, amount, frequency, description, timestamp=None):
-    """Ajoute une nouvelle dépense et sauvegarde dans le fichier JSON."""
-    new_expense = {
+def add_expense_to_firestore(category, amount, frequency, description, timestamp=None):
+    """Ajoute une dépense à Firebase Firestore."""
+    expense_ref = db.collection('expenses').document()  # Créer un document unique pour chaque dépense
+    expense_ref.set({
         'Catégories': category,
         'Montant': float(amount),
         'Fréquence': frequency,
         'Description': description,
         'Timestamp': timestamp if timestamp else time.time()
-    }
-    
-    # Ajoute la nouvelle dépense à la session
-    st.session_state.data.append(new_expense)
-    
-    # Sauvegarde des données dans le fichier
-    save_data_to_file()
+    })
+    st.toast("Dépense ajoutée avec succès !", icon='✅')
 
-    # Affiche une notification
-    if not timestamp:  # N'afficher le toast que pour les ajouts manuels
-        st.toast("Dépense ajoutée avec succès !", icon='✅')
+def fetch_expenses_from_firestore():
+    """Charge les dépenses depuis Firestore."""
+    expenses_ref = db.collection('expenses')  # Accéder à la collection 'expenses'
+    docs = expenses_ref.stream()  # Récupérer tous les documents
+
+    expenses = []
+    for doc in docs:
+        expenses.append(doc.to_dict())  # Convertir chaque document en dictionnaire Python
+    return expenses
 
 # --- INITIALISATION DE LA SESSION ET CHARGEMENT DES DONNÉES ---
 if 'db_initialised' not in st.session_state:
     st.session_state.db_initialised = False
-    st.session_state.data = load_data_from_file()  # Charger les données depuis le fichier JSON
-    st.session_state.db = "Simulated Local DB"
+    st.session_state.data = fetch_expenses_from_firestore()  # Charger les données depuis Firestore
+    st.session_state.db = "Firestore DB"
     st.session_state.user_id = "demo-user-" + str(random.randint(1000, 9999))  # ID utilisateur simulé
     st.session_state.import_done = False  # Drapeau pour l'importation
 
-    # Tenter de charger les données initiales du JSON
-    try:
-        if os.path.exists("initial_budget_data.json"):
-            with open("initial_budget_data.json", 'r', encoding='utf-8') as f:
-                initial_data = json.load(f)
-                st.session_state.initial_import_data = initial_data
-                st.session_state.db_initialised = True
-        else:
-            st.session_state.initial_import_data = []
-            st.warning("Fichier 'initial_budget_data.json' non trouvé. Veuillez exécuter 'data_prep.py' d'abord.")
-            st.session_state.db_initialised = True  # Initialisation de la session réussie
-    except Exception as e:
-        st.error(f"Erreur lors du chargement du fichier JSON d'importation : {e}")
-        st.session_state.db_initialised = False
-
-# --- FONCTIONS D'IMPORTATION ---
-def handle_import():
-    """Importe les données du fichier JSON dans la base de données de session."""
-    if st.session_state.initial_import_data and not st.session_state.import_done:
-        st.info(f"Importation de {len(st.session_state.initial_import_data)} transactions de l'historique...")
-        
-        # Effacer les données existantes avant l'importation
-        st.session_state.data = [] 
-        
-        for expense in st.session_state.initial_import_data:
-            add_expense(
-                expense['Catégories'], 
-                expense['Montant'], 
-                expense['Fréquence'], 
-                expense['Description'], 
-                timestamp=expense['Timestamp']
-            )
-        
-        st.session_state.import_done = True
-        st.toast("Importation de l'historique terminée !", icon='🎉')
-        st.rerun()  # Recharger l'interface pour afficher les nouvelles données
-
 # --- INTERFACE UTILISATEUR ---
-
-st.title("💰 Suivi du Budget Familial (Démo Firestore)")
+st.title("💰 Suivi du Budget Familial (Démo Firebase)")
 
 # 0. BOUTON D'IMPORTATION DE L'HISTORIQUE
-if st.session_state.initial_import_data and not st.session_state.import_done:
-    st.warning("Historique de budget trouvé ! Cliquez ci-dessous pour l'importer dans la base de données.")
-    if st.button("Importer les données historiques (2025/2026)"):
-        handle_import()
-        
 if not st.session_state.db_initialised:
-    st.error("L'application n'a pas pu s'initialiser correctement. Veuillez vérifier les fichiers.")
+    st.error("L'application n'a pas pu s'initialiser correctement. Veuillez vérifier la connexion à Firebase.")
     st.stop()
-
 
 # 1. FORMULAIRE D'AJOUT DE DÉPENSE
 with st.expander("➕ Ajouter une nouvelle dépense manuelle"):
@@ -134,7 +83,7 @@ with st.expander("➕ Ajouter une nouvelle dépense manuelle"):
         
         if submitted:
             if expense_amount > 0:
-                add_expense(expense_category, expense_amount, expense_frequency, expense_description)
+                add_expense_to_firestore(expense_category, expense_amount, expense_frequency, expense_description)
             else:
                 st.error("Le montant doit être supérieur à zéro.")
 
@@ -152,7 +101,7 @@ if expenses_list:
     total_spent = df_expenses['Montant'].sum()
 
     st.header("Analyse des Dépenses Totales")
-    st.metric(label="Total des Dépenses Enregistrées (Historique + Manuelles)", value=f"{total_spent:,.2f} €")
+    st.metric(label="Total des Dépenses Enregistrées", value=f"{total_spent:,.2f} €")
 
     st.subheader("Répartition des Dépenses par Catégorie")
     
@@ -167,24 +116,9 @@ if expenses_list:
     )
     fig_pie.update_traces(textposition='inside', textinfo='percent+label')
     st.plotly_chart(fig_pie, use_container_width=True)
-
-    st.subheader("Détail des Transactions")
-    # Tri par date, les entrées importées auront un Timestamp plus ancien (elles seront en bas)
-    df_display = df_expenses.sort_values(by='Timestamp', ascending=False)
-    
-    # Ajout d'une colonne de date formatée pour une meilleure lisibilité
-    df_display['Date Ajout'] = df_display['Timestamp'].apply(lambda x: datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M'))
-
-    st.dataframe(
-        df_display[['Date Ajout', 'Catégories', 'Montant', 'Fréquence', 'Description']],
-        column_config={
-            "Montant": st.column_config.NumberColumn("Montant (€)", format="%.2f"),
-        },
-        hide_index=True
-    )
     
 else:
-    st.info("Aucune dépense enregistrée. Importez l'historique ou ajoutez manuellement une dépense !")
+    st.info("Aucune dépense enregistrée. Ajoutez une dépense manuelle !")
 
 st.markdown(""" 
 <style> 
