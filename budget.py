@@ -213,31 +213,47 @@ with tab1:
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
+        st.markdown("""
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        """, unsafe_allow_html=True)
         st.subheader("Revenus vs Dépenses")
         if not df_expenses_filtered.empty or not df_revenues_filtered.empty:
             fig_comparison = go.Figure(data=[
-                go.Bar(name='Revenus', x=['Période sélectionnée'], y=[total_revenus], marker_color='#4472C4'),
-                go.Bar(name='Dépenses', x=['Période sélectionnée'], y=[total_depenses], marker_color='#C5CAE9')
+                go.Bar(name='Revenus', x=['Période sélectionnée'], y=[total_revenus], 
+                       marker_color='#4472C4', text=[f'{total_revenus:,.0f} €'], 
+                       textposition='outside'),
+                go.Bar(name='Dépenses', x=['Période sélectionnée'], y=[total_depenses], 
+                       marker_color='#C5CAE9', text=[f'{total_depenses:,.0f} €'], 
+                       textposition='outside')
             ])
             fig_comparison.update_layout(barmode='group', height=350, showlegend=True)
             st.plotly_chart(fig_comparison, use_container_width=True)
         else:
             st.info("Aucune donnée disponible")
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col_g2:
+        st.markdown("""
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        """, unsafe_allow_html=True)
         st.subheader("Répartition des Dépenses")
         if not df_expenses_filtered.empty:
             df_cat = df_expenses_filtered.groupby('Catégories')['Montant'].sum().reset_index()
             fig_pie = px.pie(df_cat, values='Montant', names='Catégories',
                             color_discrete_sequence=px.colors.sequential.Blues_r,
                             hole=0.4)
-            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label+value', 
+                                 texttemplate='%{label}<br>%{value:,.0f}€<br>%{percent}')
             fig_pie.update_layout(height=350)
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Aucune dépense enregistrée")
+        st.markdown("</div>", unsafe_allow_html=True)
     
     # Graphique mensuel
+    st.markdown("""
+    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-top: 20px;">
+    """, unsafe_allow_html=True)
     st.subheader(f"Évolution Mensuelle - {selected_year}")
     
     if not df_expenses.empty and 'Année' in df_expenses.columns:
@@ -251,10 +267,15 @@ with tab1:
         monthly_revenues = pd.Series(0, index=MOIS)
     
     fig_monthly = go.Figure()
-    fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_revenues, name='Revenus', marker_color='#4472C4'))
-    fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_expenses, name='Dépenses', marker_color='#C5CAE9'))
+    fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_revenues, name='Revenus', 
+                                 marker_color='#4472C4', text=[f'{v:,.0f}€' for v in monthly_revenues],
+                                 textposition='outside'))
+    fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_expenses, name='Dépenses', 
+                                 marker_color='#C5CAE9', text=[f'{v:,.0f}€' for v in monthly_expenses],
+                                 textposition='outside'))
     fig_monthly.update_layout(barmode='group', height=400, xaxis_title="Mois", yaxis_title="Montant (€)")
     st.plotly_chart(fig_monthly, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ===== ONGLET 2: TABLEAU REVENUS =====
 with tab2:
@@ -504,7 +525,8 @@ with tab5:
     
     with col_imp1:
         st.write("**Format attendu pour les DÉPENSES :**")
-        st.code("Catégories | Montant | Fréquence | Mois | Année | Description")
+        st.code("Catégorie | Montant | Fréquence | Mois | Année | Description")
+        st.info("⚠️ IMPORTANT: La colonne doit s'appeler 'Catégorie' (sans s) et respecter exactement les noms des catégories.")
         uploaded_expenses = st.file_uploader("Importer les dépenses (.xlsx)", 
                                             type=['xlsx'], key="exp_upload")
         
@@ -514,17 +536,26 @@ with tab5:
                 st.dataframe(df_import_exp.head())
                 
                 if st.button("Importer les dépenses", key="import_exp"):
+                    imported_count = 0
                     for _, row in df_import_exp.iterrows():
+                        categorie = str(row.get('Catégorie', row.get('Catégories', 'Autre'))).strip()
+                        
+                        # Vérifier si la catégorie existe dans la liste
+                        if categorie not in CATEGORIES_DEPENSES:
+                            st.warning(f"⚠️ Catégorie '{categorie}' non reconnue, classée en 'Autre'")
+                            categorie = 'Autre'
+                        
                         add_expense_to_firestore(
-                            row.get('Catégories', 'Autre'),
+                            categorie,
                             float(row.get('Montant', 0)),
                             row.get('Fréquence', 'Unique'),
                             row.get('Description', ''),
                             row.get('Mois', 'Janvier'),
-                            int(row.get('Année', selected_year))
+                            int(row.get('Année', row.get('Annee', selected_year)))
                         )
+                        imported_count += 1
                     st.session_state.expenses = fetch_expenses_from_firestore()
-                    st.success(f"✅ {len(df_import_exp)} dépenses importées !")
+                    st.success(f"✅ {imported_count} dépenses importées !")
                     time.sleep(1)
                     st.rerun()
             except Exception as e:
