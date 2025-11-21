@@ -10,13 +10,54 @@ from datetime import datetime
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(page_title="Budget Familial (Importation & Base de Données)", layout="wide")
 
-# --- INITIALISATION DE FIREBASE (SIMULÉE) ET CHARGEMENT DES DONNÉES D'IMPORTATION ---
+# --- FONCTIONS DE GESTION DES DONNÉES PERSISTANTES (SIMULÉES) ---
+
+def save_data_to_file():
+    """Sauvegarde les données dans un fichier JSON."""
+    try:
+        with open("budget_data.json", "w", encoding="utf-8") as f:
+            json.dump(st.session_state.data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"Erreur lors de la sauvegarde des données : {e}")
+
+def load_data_from_file():
+    """Charge les données depuis le fichier JSON."""
+    if os.path.exists("budget_data.json"):
+        try:
+            with open("budget_data.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"Erreur lors du chargement des données : {e}")
+            return []
+    return []
+
+def add_expense(category, amount, frequency, description, timestamp=None):
+    """Ajoute une nouvelle dépense et sauvegarde dans le fichier JSON."""
+    new_expense = {
+        'Catégories': category,
+        'Montant': float(amount),
+        'Fréquence': frequency,
+        'Description': description,
+        'Timestamp': timestamp if timestamp else time.time()
+    }
+    
+    # Ajoute la nouvelle dépense à la session
+    st.session_state.data.append(new_expense)
+    
+    # Sauvegarde des données dans le fichier
+    save_data_to_file()
+
+    # Affiche une notification
+    if not timestamp:  # N'afficher le toast que pour les ajouts manuels
+        st.toast("Dépense ajoutée avec succès !", icon='✅')
+
+# --- INITIALISATION DE LA SESSION ET CHARGEMENT DES DONNÉES ---
 if 'db_initialised' not in st.session_state:
     st.session_state.db_initialised = False
-    st.session_state.data = []  # Stockage des dépenses pour la simulation
+    st.session_state.data = load_data_from_file()  # Charger les données depuis le fichier JSON
     st.session_state.db = "Simulated Local DB"
-    st.session_state.user_id = "demo-user-" + str(random.randint(1000, 9999)) # ID utilisateur simulé
-    st.session_state.import_done = False # Drapeau pour l'importation
+    st.session_state.user_id = "demo-user-" + str(random.randint(1000, 9999))  # ID utilisateur simulé
+    st.session_state.import_done = False  # Drapeau pour l'importation
 
     # Tenter de charger les données initiales du JSON
     try:
@@ -28,36 +69,12 @@ if 'db_initialised' not in st.session_state:
         else:
             st.session_state.initial_import_data = []
             st.warning("Fichier 'initial_budget_data.json' non trouvé. Veuillez exécuter 'data_prep.py' d'abord.")
-            st.session_state.db_initialised = True # Initialisation de la session réussie
-            
+            st.session_state.db_initialised = True  # Initialisation de la session réussie
     except Exception as e:
         st.error(f"Erreur lors du chargement du fichier JSON d'importation : {e}")
         st.session_state.db_initialised = False
 
-
-# --- FONCTIONS DE GESTION DES DONNÉES PERSISTANTES (SIMULÉES) ---
-
-def fetch_expenses():
-    """Charge toutes les dépenses depuis la base de données (ou la session)."""
-    # Dans un vrai environnement Firestore, ceci serait un onSnapshot
-    return st.session_state.data
-
-def add_expense(category, amount, frequency, description, timestamp=None):
-    """Ajoute une nouvelle dépense à la base de données (ou la session)."""
-    new_expense = {
-        'Catégories': category,
-        'Montant': float(amount),
-        'Fréquence': frequency,
-        'Description': description,
-        'Timestamp': timestamp if timestamp else time.time()
-    }
-    
-    # Logique d'écriture : ici, nous écrivons dans la variable de session (simulation)
-    st.session_state.data.append(new_expense)
-    
-    if not timestamp: # N'afficher le toast que pour les ajouts manuels
-        st.toast("Dépense ajoutée avec succès !", icon='✅')
-
+# --- FONCTIONS D'IMPORTATION ---
 def handle_import():
     """Importe les données du fichier JSON dans la base de données de session."""
     if st.session_state.initial_import_data and not st.session_state.import_done:
@@ -67,7 +84,6 @@ def handle_import():
         st.session_state.data = [] 
         
         for expense in st.session_state.initial_import_data:
-            # Injecter les données en utilisant le timestamp d'origine
             add_expense(
                 expense['Catégories'], 
                 expense['Montant'], 
@@ -78,7 +94,7 @@ def handle_import():
         
         st.session_state.import_done = True
         st.toast("Importation de l'historique terminée !", icon='🎉')
-        st.rerun() # Recharger l'interface pour afficher les nouvelles données
+        st.rerun()  # Recharger l'interface pour afficher les nouvelles données
 
 # --- INTERFACE UTILISATEUR ---
 
@@ -113,7 +129,7 @@ with st.expander("➕ Ajouter une nouvelle dépense manuelle"):
                 options=['Mensuel', 'Annuel', 'Trimestriel', 'Unique', 'Hebdomadaire']
             )
             expense_description = st.text_input("Description (facultatif)")
-        
+
         submitted = st.form_submit_button("Enregistrer la dépense")
         
         if submitted:
@@ -123,7 +139,7 @@ with st.expander("➕ Ajouter une nouvelle dépense manuelle"):
                 st.error("Le montant doit être supérieur à zéro.")
 
 # 2. AFFICHAGE ET ANALYSE DES DONNÉES
-expenses_list = fetch_expenses()
+expenses_list = st.session_state.data
 
 if expenses_list:
     df_expenses = pd.DataFrame(expenses_list)
@@ -170,9 +186,9 @@ if expenses_list:
 else:
     st.info("Aucune dépense enregistrée. Importez l'historique ou ajoutez manuellement une dépense !")
 
-st.markdown("""
-<style>
-/* Corrige un petit problème de padding en bas de page */
-.stApp { padding-bottom: 2rem; }
-</style>
+st.markdown(""" 
+<style> 
+/* Corrige un petit problème de padding en bas de page */ 
+.stApp { padding-bottom: 2rem; } 
+</style> 
 """, unsafe_allow_html=True)
