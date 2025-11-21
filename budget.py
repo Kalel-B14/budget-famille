@@ -13,7 +13,6 @@ from firebase_admin import credentials, firestore
 st.set_page_config(page_title="Budget Familial (Importation & Base de Données)", layout="wide")
 
 # --- INITIALISATION DE FIREBASE ---
-
 # Vérifier si Firebase a déjà été initialisé
 if not firebase_admin._apps:
     # Récupérer les secrets de Firebase depuis Streamlit Cloud
