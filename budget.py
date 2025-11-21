@@ -121,9 +121,29 @@ MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
 MOIS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 
               'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 
-CATEGORIES_DEPENSES = ['Maison', 'Alimentation', 'Transport', 'Épargne', 
-                       'Loisirs', 'Santé', 'Abonnements', 'Multimédia', 
-                       'Enfants', 'Autre']
+CATEGORIES_DEPENSES = [
+    'Compte Perso - Souliman',
+    'Compte Perso - Margaux',
+    'Essence',
+    'Loyer',
+    'Forfait Internet',
+    'Forfait Mobile',
+    'Crédit Voiture',
+    'Frais Bourso (Voitures, Maison, Hopital...)',
+    'Crédit Consomation',
+    'Engie (chauffage + élec)',
+    'Veolia (eau)',
+    'Assurance Maison',
+    'Frais Voiture (Réparation, Assurance...)',
+    'Anniversaires (Fêtes Noël, pacques...)',
+    'Olga',
+    'Épargne',
+    'École Clémence',
+    'Épargne Clémence',
+    'Marge compte',
+    'Courses',
+    'Autre'
+]
 
 ANNEES = list(range(2020, 2031))
 
