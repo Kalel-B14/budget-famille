@@ -13,6 +13,7 @@ from firebase_admin import credentials, firestore
 st.set_page_config(page_title="Budget Familial (Importation & Base de Données)", layout="wide")
 
 # --- INITIALISATION DE FIREBASE ---
+
 # Vérifier si Firebase a déjà été initialisé
 if not firebase_admin._apps:
     # Récupérer les secrets de Firebase depuis Streamlit Cloud
@@ -23,7 +24,7 @@ if not firebase_admin._apps:
         "type": firebase_secrets["type"],
         "project_id": firebase_secrets["project_id"],
         "private_key_id": firebase_secrets["private_key_id"],
-        "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
+        "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),  # Le format de la clé privée est spécial
         "client_email": firebase_secrets["client_email"],
         "client_id": firebase_secrets["client_id"],
         "auth_uri": firebase_secrets["auth_uri"],
@@ -32,18 +33,18 @@ if not firebase_admin._apps:
         "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
     }
 
-    # Initialiser Firebase SANS nom personnalisé (utilise l'app par défaut)
+    # Initialiser Firebase avec les secrets (en spécifiant un nom unique pour éviter l'erreur de réinitialisation)
     cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)  # Suppression du paramètre name
+    firebase_admin.initialize_app(cred, name="budget-famille-app")  # Ajout d'un nom unique pour l'application
 
-# Accéder à Firestore (maintenant il trouvera l'app par défaut)
+# Accéder à Firestore
 db = firestore.client()
 
 # --- FONCTIONS DE GESTION DES DONNÉES FIRESTORE ---
 
 def add_expense_to_firestore(category, amount, frequency, description, timestamp=None):
     """Ajoute une dépense à Firebase Firestore."""
-    expense_ref = db.collection('expenses').document()
+    expense_ref = db.collection('expenses').document()  # Créer un document unique pour chaque dépense
     expense_ref.set({
         'Catégories': category,
         'Montant': float(amount),
@@ -55,26 +56,26 @@ def add_expense_to_firestore(category, amount, frequency, description, timestamp
 
 def fetch_expenses_from_firestore():
     """Charge les dépenses depuis Firestore."""
-    expenses_ref = db.collection('expenses')
-    docs = expenses_ref.stream()
+    expenses_ref = db.collection('expenses')  # Accéder à la collection 'expenses'
+    docs = expenses_ref.stream()  # Récupérer tous les documents
 
     expenses = []
     for doc in docs:
-        expenses.append(doc.to_dict())
+        expenses.append(doc.to_dict())  # Convertir chaque document en dictionnaire Python
     return expenses
 
 # --- INITIALISATION DE LA SESSION ET CHARGEMENT DES DONNÉES ---
 if 'db_initialised' not in st.session_state:
-    st.session_state.db_initialised = True
-    st.session_state.data = fetch_expenses_from_firestore()
+    st.session_state.db_initialised = False
+    st.session_state.data = fetch_expenses_from_firestore()  # Charger les données depuis Firestore
     st.session_state.db = "Firestore DB"
-    st.session_state.user_id = "demo-user-" + str(random.randint(1000, 9999))
-    st.session_state.import_done = False
+    st.session_state.user_id = "demo-user-" + str(random.randint(1000, 9999))  # ID utilisateur simulé
+    st.session_state.import_done = False  # Drapeau pour l'importation
 
 # --- INTERFACE UTILISATEUR ---
 st.title("💰 Suivi du Budget Familial (Démo Firebase)")
 
-# 0. VÉRIFICATION DE L'INITIALISATION
+# 0. BOUTON D'IMPORTATION DE L'HISTORIQUE
 if not st.session_state.db_initialised:
     st.error("L'application n'a pas pu s'initialiser correctement. Veuillez vérifier la connexion à Firebase.")
     st.stop()
@@ -103,9 +104,6 @@ with st.expander("➕ Ajouter une nouvelle dépense manuelle"):
         if submitted:
             if expense_amount > 0:
                 add_expense_to_firestore(expense_category, expense_amount, expense_frequency, expense_description)
-                # Recharger les données après ajout
-                st.session_state.data = fetch_expenses_from_firestore()
-                st.rerun()
             else:
                 st.error("Le montant doit être supérieur à zéro.")
 
@@ -115,7 +113,7 @@ expenses_list = st.session_state.data
 if expenses_list:
     df_expenses = pd.DataFrame(expenses_list)
     
-    # Agrégation par catégorie
+    # Agrégation par catégorie (pour le graphique)
     df_agg = df_expenses.groupby('Catégories')['Montant'].sum().reset_index()
     df_agg.rename(columns={'Montant': 'Total Dépensé (€)'}, inplace=True)
     
@@ -127,7 +125,7 @@ if expenses_list:
 
     st.subheader("Répartition des Dépenses par Catégorie")
     
-    # Graphique en secteurs
+    # Création du graphique en secteurs (Pie Chart)
     fig_pie = px.pie(
         df_agg, 
         values='Total Dépensé (€)', 
@@ -139,15 +137,12 @@ if expenses_list:
     fig_pie.update_traces(textposition='inside', textinfo='percent+label')
     st.plotly_chart(fig_pie, use_container_width=True)
     
-    # Affichage du tableau des dépenses
-    st.subheader("Détail des Dépenses")
-    st.dataframe(df_expenses, use_container_width=True)
-    
 else:
     st.info("Aucune dépense enregistrée. Ajoutez une dépense manuelle !")
 
 st.markdown(""" 
 <style> 
+/* Corrige un petit problème de padding en bas de page */ 
 .stApp { padding-bottom: 2rem; } 
 </style> 
 """, unsafe_allow_html=True)
