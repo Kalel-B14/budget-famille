@@ -32,7 +32,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # --- FONCTIONS FIRESTORE ---
-def add_expense_to_firestore(category, amount, frequency, description, month, timestamp=None):
+def add_expense_to_firestore(category, amount, frequency, description, month, year, timestamp=None):
     """Ajoute une dépense à Firestore."""
     expense_ref = db.collection('expenses').document()
     expense_ref.set({
@@ -41,35 +41,71 @@ def add_expense_to_firestore(category, amount, frequency, description, month, ti
         'Fréquence': frequency,
         'Description': description,
         'Mois': month,
+        'Année': int(year),
         'Timestamp': timestamp if timestamp else time.time()
     })
 
-def add_revenue_to_firestore(source, amount, month, timestamp=None):
+def add_revenue_to_firestore(source, amount, month, year, timestamp=None):
     """Ajoute un revenu à Firestore."""
     revenue_ref = db.collection('revenues').document()
     revenue_ref.set({
         'Source': source,
         'Montant': float(amount),
         'Mois': month,
+        'Année': int(year),
         'Timestamp': timestamp if timestamp else time.time()
     })
 
+def update_expense_in_firestore(doc_id, category, amount, frequency, description, month, year):
+    """Met à jour une dépense dans Firestore."""
+    expense_ref = db.collection('expenses').document(doc_id)
+    expense_ref.update({
+        'Catégories': category,
+        'Montant': float(amount),
+        'Fréquence': frequency,
+        'Description': description,
+        'Mois': month,
+        'Année': int(year)
+    })
+
+def update_revenue_in_firestore(doc_id, source, amount, month, year):
+    """Met à jour un revenu dans Firestore."""
+    revenue_ref = db.collection('revenues').document(doc_id)
+    revenue_ref.update({
+        'Source': source,
+        'Montant': float(amount),
+        'Mois': month,
+        'Année': int(year)
+    })
+
+def delete_expense_from_firestore(doc_id):
+    """Supprime une dépense de Firestore."""
+    db.collection('expenses').document(doc_id).delete()
+
+def delete_revenue_from_firestore(doc_id):
+    """Supprime un revenu de Firestore."""
+    db.collection('revenues').document(doc_id).delete()
+
 def fetch_expenses_from_firestore():
-    """Charge les dépenses depuis Firestore."""
+    """Charge les dépenses depuis Firestore avec leurs IDs."""
     expenses_ref = db.collection('expenses')
     docs = expenses_ref.stream()
     expenses = []
     for doc in docs:
-        expenses.append(doc.to_dict())
+        data = doc.to_dict()
+        data['doc_id'] = doc.id
+        expenses.append(data)
     return expenses
 
 def fetch_revenues_from_firestore():
-    """Charge les revenus depuis Firestore."""
+    """Charge les revenus depuis Firestore avec leurs IDs."""
     revenues_ref = db.collection('revenues')
     docs = revenues_ref.stream()
     revenues = []
     for doc in docs:
-        revenues.append(doc.to_dict())
+        data = doc.to_dict()
+        data['doc_id'] = doc.id
+        revenues.append(data)
     return revenues
 
 # --- INITIALISATION SESSION ---
@@ -82,41 +118,55 @@ if 'db_initialised' not in st.session_state:
 MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
         'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
+MOIS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 
+              'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+
 CATEGORIES_DEPENSES = ['Maison', 'Alimentation', 'Transport', 'Épargne', 
                        'Loisirs', 'Santé', 'Abonnements', 'Multimédia', 
                        'Enfants', 'Autre']
 
+ANNEES = list(range(2020, 2031))
+
 # --- INTERFACE ---
-st.title("💰 Suivi du Budget Familial 2026")
+st.title("💰 Suivi du Budget Familial")
+
+# Sélection de l'année (en haut de la page)
+col_year, col_space = st.columns([1, 3])
+with col_year:
+    selected_year = st.selectbox("📅 Année", options=ANNEES, index=ANNEES.index(datetime.now().year))
 
 # --- ONGLETS PRINCIPAUX ---
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Tableau de Bord", "➕ Ajouter des Données", "📤 Importer Excel", "📈 Analyses Détaillées"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Tableau de Bord", "📋 Tableau Revenus", "📋 Tableau Dépenses", "➕ Ajouter", "📤 Importer Excel"])
 
 # ===== ONGLET 1: TABLEAU DE BORD =====
 with tab1:
     # Sélection du/des mois
-    col_filter1, col_filter2 = st.columns([3, 1])
-    with col_filter1:
-        selected_months = st.multiselect(
-            "Sélectionner le(s) mois à analyser",
-            options=MOIS,
-            default=[MOIS[datetime.now().month - 1]] if datetime.now().month <= 12 else [MOIS[0]]
-        )
+    selected_months = st.multiselect(
+        "Sélectionner le(s) mois à analyser",
+        options=MOIS,
+        default=MOIS
+    )
     
     # Charger les données
     df_expenses = pd.DataFrame(st.session_state.expenses)
     df_revenues = pd.DataFrame(st.session_state.revenues)
     
-    # Filtrer par mois sélectionnés
-    if not df_expenses.empty and 'Mois' in df_expenses.columns and selected_months:
-        df_expenses_filtered = df_expenses[df_expenses['Mois'].isin(selected_months)]
+    # Filtrer par année et mois
+    if not df_expenses.empty and 'Mois' in df_expenses.columns and 'Année' in df_expenses.columns:
+        df_expenses_filtered = df_expenses[
+            (df_expenses['Année'] == selected_year) & 
+            (df_expenses['Mois'].isin(selected_months))
+        ]
     else:
-        df_expenses_filtered = df_expenses.copy() if not df_expenses.empty else pd.DataFrame()
+        df_expenses_filtered = pd.DataFrame()
     
-    if not df_revenues.empty and 'Mois' in df_revenues.columns and selected_months:
-        df_revenues_filtered = df_revenues[df_revenues['Mois'].isin(selected_months)]
+    if not df_revenues.empty and 'Mois' in df_revenues.columns and 'Année' in df_revenues.columns:
+        df_revenues_filtered = df_revenues[
+            (df_revenues['Année'] == selected_year) & 
+            (df_revenues['Mois'].isin(selected_months))
+        ]
     else:
-        df_revenues_filtered = df_revenues.copy() if not df_revenues.empty else pd.DataFrame()
+        df_revenues_filtered = pd.DataFrame()
     
     # --- MÉTRIQUES PRINCIPALES ---
     col1, col2, col3, col4 = st.columns(4)
@@ -166,9 +216,225 @@ with tab1:
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Aucune dépense enregistrée")
+    
+    # Graphique mensuel
+    st.subheader(f"Évolution Mensuelle - {selected_year}")
+    
+    if not df_expenses.empty and 'Année' in df_expenses.columns:
+        monthly_expenses = df_expenses[df_expenses['Année'] == selected_year].groupby('Mois')['Montant'].sum().reindex(MOIS, fill_value=0)
+    else:
+        monthly_expenses = pd.Series(0, index=MOIS)
+    
+    if not df_revenues.empty and 'Année' in df_revenues.columns:
+        monthly_revenues = df_revenues[df_revenues['Année'] == selected_year].groupby('Mois')['Montant'].sum().reindex(MOIS, fill_value=0)
+    else:
+        monthly_revenues = pd.Series(0, index=MOIS)
+    
+    fig_monthly = go.Figure()
+    fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_revenues, name='Revenus', marker_color='#4472C4'))
+    fig_monthly.add_trace(go.Bar(x=MOIS_SHORT, y=monthly_expenses, name='Dépenses', marker_color='#C5CAE9'))
+    fig_monthly.update_layout(barmode='group', height=400, xaxis_title="Mois", yaxis_title="Montant (€)")
+    st.plotly_chart(fig_monthly, use_container_width=True)
 
-# ===== ONGLET 2: AJOUTER DES DONNÉES =====
+# ===== ONGLET 2: TABLEAU REVENUS =====
 with tab2:
+    st.subheader(f"📋 Tableau des Revenus - {selected_year}")
+    
+    if not df_revenues.empty and 'Année' in df_revenues.columns:
+        df_rev_year = df_revenues[df_revenues['Année'] == selected_year].copy()
+        
+        if not df_rev_year.empty:
+            # Créer un tableau pivot
+            pivot_data = []
+            sources = df_rev_year['Source'].unique()
+            
+            for source in sources:
+                row_data = {'Élément': source}
+                df_source = df_rev_year[df_rev_year['Source'] == source]
+                
+                total = 0
+                for mois in MOIS_SHORT:
+                    mois_full = MOIS[MOIS_SHORT.index(mois)]
+                    montant = df_source[df_source['Mois'] == mois_full]['Montant'].sum()
+                    row_data[mois] = f"{montant:,.0f} €" if montant > 0 else "0 €"
+                    total += montant
+                
+                row_data['Total'] = f"{total:,.0f} €"
+                row_data['Moyen'] = f"{total/12:,.0f} €"
+                pivot_data.append(row_data)
+            
+            # Ligne Total
+            total_row = {'Élément': '**Total**'}
+            grand_total = 0
+            for mois in MOIS_SHORT:
+                mois_full = MOIS[MOIS_SHORT.index(mois)]
+                montant = df_rev_year[df_rev_year['Mois'] == mois_full]['Montant'].sum()
+                total_row[mois] = f"**{montant:,.0f} €**"
+                grand_total += montant
+            total_row['Total'] = f"**{grand_total:,.0f} €**"
+            total_row['Moyen'] = f"**{grand_total/12:,.0f} €**"
+            pivot_data.append(total_row)
+            
+            df_pivot = pd.DataFrame(pivot_data)
+            st.dataframe(df_pivot, use_container_width=True, hide_index=True)
+            
+            # Section Modification/Suppression
+            st.divider()
+            st.write("**Modifier ou Supprimer un Revenu**")
+            
+            # Préparer les options pour le selectbox
+            df_rev_display = df_rev_year[['Source', 'Montant', 'Mois', 'doc_id']].copy()
+            df_rev_display['Display'] = df_rev_display.apply(
+                lambda x: f"{x['Source']} - {x['Montant']:.0f}€ - {x['Mois']}", axis=1
+            )
+            
+            selected_rev = st.selectbox(
+                "Sélectionner un revenu à modifier/supprimer",
+                options=df_rev_display['Display'].tolist(),
+                key="select_rev"
+            )
+            
+            if selected_rev:
+                idx = df_rev_display[df_rev_display['Display'] == selected_rev].index[0]
+                rev_data = df_rev_year.loc[idx]
+                
+                col_mod, col_del = st.columns([3, 1])
+                
+                with col_mod:
+                    with st.form("edit_revenue_form"):
+                        st.write("**Modifier ce revenu**")
+                        new_source = st.selectbox("Source", 
+                                                  options=['Salaire Principal', 'Salaire Conjoint', 
+                                                          'Primes', 'Revenus Complémentaires', 'Autre'],
+                                                  index=['Salaire Principal', 'Salaire Conjoint', 
+                                                        'Primes', 'Revenus Complémentaires', 'Autre'].index(rev_data['Source']) 
+                                                        if rev_data['Source'] in ['Salaire Principal', 'Salaire Conjoint', 
+                                                        'Primes', 'Revenus Complémentaires', 'Autre'] else 0)
+                        new_amount = st.number_input("Montant", value=float(rev_data['Montant']), step=10.0)
+                        new_month = st.selectbox("Mois", options=MOIS, index=MOIS.index(rev_data['Mois']))
+                        
+                        if st.form_submit_button("💾 Enregistrer les modifications"):
+                            update_revenue_in_firestore(rev_data['doc_id'], new_source, new_amount, new_month, selected_year)
+                            st.session_state.revenues = fetch_revenues_from_firestore()
+                            st.success("✅ Revenu modifié !")
+                            time.sleep(1)
+                            st.rerun()
+                
+                with col_del:
+                    st.write("")
+                    st.write("")
+                    if st.button("🗑️ Supprimer", key="del_rev", type="secondary"):
+                        delete_revenue_from_firestore(rev_data['doc_id'])
+                        st.session_state.revenues = fetch_revenues_from_firestore()
+                        st.success("✅ Revenu supprimé !")
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            st.info(f"Aucun revenu enregistré pour {selected_year}")
+    else:
+        st.info("Aucun revenu enregistré")
+
+# ===== ONGLET 3: TABLEAU DÉPENSES =====
+with tab3:
+    st.subheader(f"📋 Tableau des Dépenses - {selected_year}")
+    
+    if not df_expenses.empty and 'Année' in df_expenses.columns:
+        df_exp_year = df_expenses[df_expenses['Année'] == selected_year].copy()
+        
+        if not df_exp_year.empty:
+            # Créer un tableau pivot
+            pivot_data = []
+            categories = df_exp_year['Catégories'].unique()
+            
+            for cat in categories:
+                row_data = {'Élément': cat}
+                df_cat = df_exp_year[df_exp_year['Catégories'] == cat]
+                
+                total = 0
+                for mois in MOIS_SHORT:
+                    mois_full = MOIS[MOIS_SHORT.index(mois)]
+                    montant = df_cat[df_cat['Mois'] == mois_full]['Montant'].sum()
+                    row_data[mois] = f"{montant:,.0f} €" if montant > 0 else "0 €"
+                    total += montant
+                
+                row_data['Total'] = f"{total:,.0f} €"
+                row_data['Moyen'] = f"{total/12:,.0f} €"
+                pivot_data.append(row_data)
+            
+            # Ligne Total
+            total_row = {'Élément': '**Total**'}
+            grand_total = 0
+            for mois in MOIS_SHORT:
+                mois_full = MOIS[MOIS_SHORT.index(mois)]
+                montant = df_exp_year[df_exp_year['Mois'] == mois_full]['Montant'].sum()
+                total_row[mois] = f"**{montant:,.0f} €**"
+                grand_total += montant
+            total_row['Total'] = f"**{grand_total:,.0f} €**"
+            total_row['Moyen'] = f"**{grand_total/12:,.0f} €**"
+            pivot_data.append(total_row)
+            
+            df_pivot = pd.DataFrame(pivot_data)
+            st.dataframe(df_pivot, use_container_width=True, hide_index=True)
+            
+            # Section Modification/Suppression
+            st.divider()
+            st.write("**Modifier ou Supprimer une Dépense**")
+            
+            # Préparer les options
+            df_exp_display = df_exp_year[['Catégories', 'Montant', 'Mois', 'Description', 'doc_id']].copy()
+            df_exp_display['Display'] = df_exp_display.apply(
+                lambda x: f"{x['Catégories']} - {x['Montant']:.0f}€ - {x['Mois']} - {x['Description']}", axis=1
+            )
+            
+            selected_exp = st.selectbox(
+                "Sélectionner une dépense à modifier/supprimer",
+                options=df_exp_display['Display'].tolist(),
+                key="select_exp"
+            )
+            
+            if selected_exp:
+                idx = df_exp_display[df_exp_display['Display'] == selected_exp].index[0]
+                exp_data = df_exp_year.loc[idx]
+                
+                col_mod, col_del = st.columns([3, 1])
+                
+                with col_mod:
+                    with st.form("edit_expense_form"):
+                        st.write("**Modifier cette dépense**")
+                        new_cat = st.selectbox("Catégorie", options=CATEGORIES_DEPENSES, 
+                                              index=CATEGORIES_DEPENSES.index(exp_data['Catégories']) 
+                                              if exp_data['Catégories'] in CATEGORIES_DEPENSES else 0)
+                        new_amount = st.number_input("Montant", value=float(exp_data['Montant']), step=5.0)
+                        new_month = st.selectbox("Mois", options=MOIS, index=MOIS.index(exp_data['Mois']))
+                        new_freq = st.selectbox("Fréquence", 
+                                               options=['Mensuel', 'Annuel', 'Trimestriel', 'Unique', 'Hebdomadaire'],
+                                               index=['Mensuel', 'Annuel', 'Trimestriel', 'Unique', 'Hebdomadaire'].index(exp_data['Fréquence'])
+                                               if exp_data['Fréquence'] in ['Mensuel', 'Annuel', 'Trimestriel', 'Unique', 'Hebdomadaire'] else 0)
+                        new_desc = st.text_input("Description", value=exp_data.get('Description', ''))
+                        
+                        if st.form_submit_button("💾 Enregistrer les modifications"):
+                            update_expense_in_firestore(exp_data['doc_id'], new_cat, new_amount, new_freq, new_desc, new_month, selected_year)
+                            st.session_state.expenses = fetch_expenses_from_firestore()
+                            st.success("✅ Dépense modifiée !")
+                            time.sleep(1)
+                            st.rerun()
+                
+                with col_del:
+                    st.write("")
+                    st.write("")
+                    if st.button("🗑️ Supprimer", key="del_exp", type="secondary"):
+                        delete_expense_from_firestore(exp_data['doc_id'])
+                        st.session_state.expenses = fetch_expenses_from_firestore()
+                        st.success("✅ Dépense supprimée !")
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            st.info(f"Aucune dépense enregistrée pour {selected_year}")
+    else:
+        st.info("Aucune dépense enregistrée")
+
+# ===== ONGLET 4: AJOUTER DES DONNÉES =====
+with tab4:
     col_add1, col_add2 = st.columns(2)
     
     # AJOUTER UN REVENU
@@ -180,9 +446,10 @@ with tab2:
                                               'Primes', 'Revenus Complémentaires', 'Autre'])
             rev_amount = st.number_input("Montant (€)", min_value=0.01, step=50.0, key="rev_amt")
             rev_month = st.selectbox("Mois", options=MOIS, key="rev_month")
+            rev_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="rev_year")
             
             if st.form_submit_button("💾 Enregistrer le Revenu"):
-                add_revenue_to_firestore(rev_source, rev_amount, rev_month)
+                add_revenue_to_firestore(rev_source, rev_amount, rev_month, rev_year)
                 st.session_state.revenues = fetch_revenues_from_firestore()
                 st.success("✅ Revenu ajouté avec succès !")
                 time.sleep(1)
@@ -195,6 +462,7 @@ with tab2:
             exp_category = st.selectbox("Catégorie", options=CATEGORIES_DEPENSES)
             exp_amount = st.number_input("Montant (€)", min_value=0.01, step=5.0, key="exp_amt")
             exp_month = st.selectbox("Mois", options=MOIS, key="exp_month")
+            exp_year = st.number_input("Année", min_value=2020, max_value=2030, value=selected_year, key="exp_year")
             exp_frequency = st.selectbox("Fréquence", 
                                         options=['Mensuel', 'Annuel', 'Trimestriel', 
                                                 'Unique', 'Hebdomadaire'])
@@ -202,21 +470,21 @@ with tab2:
             
             if st.form_submit_button("💾 Enregistrer la Dépense"):
                 add_expense_to_firestore(exp_category, exp_amount, exp_frequency, 
-                                        exp_description, exp_month)
+                                        exp_description, exp_month, exp_year)
                 st.session_state.expenses = fetch_expenses_from_firestore()
                 st.success("✅ Dépense ajoutée avec succès !")
                 time.sleep(1)
                 st.rerun()
 
-# ===== ONGLET 3: IMPORT EXCEL =====
-with tab3:
+# ===== ONGLET 5: IMPORT EXCEL =====
+with tab5:
     st.subheader("📤 Importer des données depuis Excel")
     
     col_imp1, col_imp2 = st.columns(2)
     
     with col_imp1:
         st.write("**Format attendu pour les DÉPENSES :**")
-        st.code("Catégories | Montant | Fréquence | Mois | Description")
+        st.code("Catégories | Montant | Fréquence | Mois | Année | Description")
         uploaded_expenses = st.file_uploader("Importer les dépenses (.xlsx)", 
                                             type=['xlsx'], key="exp_upload")
         
@@ -232,7 +500,8 @@ with tab3:
                             float(row.get('Montant', 0)),
                             row.get('Fréquence', 'Unique'),
                             row.get('Description', ''),
-                            row.get('Mois', 'Janvier')
+                            row.get('Mois', 'Janvier'),
+                            int(row.get('Année', selected_year))
                         )
                     st.session_state.expenses = fetch_expenses_from_firestore()
                     st.success(f"✅ {len(df_import_exp)} dépenses importées !")
@@ -243,7 +512,7 @@ with tab3:
     
     with col_imp2:
         st.write("**Format attendu pour les REVENUS :**")
-        st.code("Source | Montant | Mois")
+        st.code("Source | Montant | Mois | Année")
         uploaded_revenues = st.file_uploader("Importer les revenus (.xlsx)", 
                                             type=['xlsx'], key="rev_upload")
         
@@ -257,7 +526,8 @@ with tab3:
                         add_revenue_to_firestore(
                             row.get('Source', 'Autre'),
                             float(row.get('Montant', 0)),
-                            row.get('Mois', 'Janvier')
+                            row.get('Mois', 'Janvier'),
+                            int(row.get('Année', selected_year))
                         )
                     st.session_state.revenues = fetch_revenues_from_firestore()
                     st.success(f"✅ {len(df_import_rev)} revenus importés !")
@@ -265,64 +535,6 @@ with tab3:
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {str(e)}")
-
-# ===== ONGLET 4: ANALYSES DÉTAILLÉES =====
-with tab4:
-    st.subheader("📈 Analyses Mensuelles Détaillées")
-    
-    # Préparer les données mensuelles
-    if not df_expenses.empty and 'Mois' in df_expenses.columns:
-        df_expenses['Mois_idx'] = df_expenses['Mois'].apply(lambda x: MOIS.index(x) if x in MOIS else 0)
-        monthly_expenses = df_expenses.groupby('Mois')['Montant'].sum().reindex(MOIS, fill_value=0)
-    else:
-        monthly_expenses = pd.Series(0, index=MOIS)
-    
-    if not df_revenues.empty and 'Mois' in df_revenues.columns:
-        df_revenues['Mois_idx'] = df_revenues['Mois'].apply(lambda x: MOIS.index(x) if x in MOIS else 0)
-        monthly_revenues = df_revenues.groupby('Mois')['Montant'].sum().reindex(MOIS, fill_value=0)
-    else:
-        monthly_revenues = pd.Series(0, index=MOIS)
-    
-    # Graphique: Revenus et Dépenses par mois
-    st.write("**Évolution Revenus vs Dépenses (2026)**")
-    fig_monthly = go.Figure()
-    fig_monthly.add_trace(go.Bar(x=MOIS, y=monthly_revenues, name='Revenus', marker_color='#4472C4'))
-    fig_monthly.add_trace(go.Bar(x=MOIS, y=monthly_expenses, name='Dépenses', marker_color='#C5CAE9'))
-    fig_monthly.update_layout(barmode='group', height=400, xaxis_title="Mois", yaxis_title="Montant (€)")
-    st.plotly_chart(fig_monthly, use_container_width=True)
-    
-    st.divider()
-    
-    # Graphique: Total des dépenses par catégorie (toute l'année)
-    st.write("**Total des Dépenses par Catégorie (2026)**")
-    if not df_expenses.empty:
-        df_cat_total = df_expenses.groupby('Catégories')['Montant'].sum().sort_values(ascending=False).reset_index()
-        fig_cat_bar = px.bar(df_cat_total, x='Catégories', y='Montant', 
-                            color='Montant', color_continuous_scale='Blues')
-        fig_cat_bar.update_layout(height=400, xaxis_title="Catégorie", yaxis_title="Total (€)")
-        st.plotly_chart(fig_cat_bar, use_container_width=True)
-    else:
-        st.info("Aucune dépense à analyser")
-    
-    st.divider()
-    
-    # Tableau récapitulatif mensuel
-    st.write("**Récapitulatif Mensuel**")
-    recap_data = []
-    for mois in MOIS:
-        rev = monthly_revenues[mois]
-        dep = monthly_expenses[mois]
-        solde = rev - dep
-        recap_data.append({
-            'Mois': mois,
-            'Revenus (€)': f"{rev:,.0f}",
-            'Dépenses (€)': f"{dep:,.0f}",
-            'Solde (€)': f"{solde:,.0f}",
-            '% Dépensé': f"{(dep/rev*100):.0f}%" if rev > 0 else "N/A"
-        })
-    
-    df_recap = pd.DataFrame(recap_data)
-    st.dataframe(df_recap, use_container_width=True, hide_index=True)
 
 st.markdown("""
 <style>
