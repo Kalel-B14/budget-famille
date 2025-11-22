@@ -4,7 +4,7 @@ Ce module gère les préférences de thème (clair/sombre) et de couleur primair
 """
 
 import streamlit as st
-from services.firebase import init_firebase, get_firestore_client
+from firebase_admin import firestore
 
 # Couleurs disponibles
 COULEURS_DISPONIBLES = {
@@ -32,9 +32,7 @@ def init_theme_state():
 def load_user_theme_preferences(username):
     """Charge les préférences de thème de l'utilisateur depuis Firebase"""
     try:
-        db = get_firestore_client()
-        if db is None:
-            return
+        db = firestore.client()
         
         # Charger les préférences de thème
         theme_ref = db.collection('user_theme_preferences').document(username)
@@ -53,15 +51,13 @@ def load_user_theme_preferences(username):
 def save_user_theme_preferences(username, mode, color):
     """Sauvegarde les préférences de thème de l'utilisateur dans Firebase"""
     try:
-        db = get_firestore_client()
-        if db is None:
-            return False
+        db = firestore.client()
         
         theme_ref = db.collection('user_theme_preferences').document(username)
         theme_ref.set({
             'mode': mode,
             'color': color,
-            'updated_at': st.session_state.get('timestamp', 0)
+            'updated_at': firestore.SERVER_TIMESTAMP
         })
         
         return True
@@ -141,7 +137,7 @@ def apply_global_theme():
         }}
         
         /* === TEXTE === */
-        p, span, div {{
+        p, span, div, label {{
             color: var(--text-color) !important;
         }}
         
@@ -199,11 +195,6 @@ def apply_global_theme():
         /* === DATAFRAME === */
         [data-testid="stDataFrame"] {{
             background-color: var(--card-bg) !important;
-            color: var(--text-color) !important;
-        }}
-        
-        .stDataFrame table {{
-            color: var(--text-color) !important;
         }}
         
         /* === TABS === */
@@ -238,6 +229,7 @@ def apply_global_theme():
             transition: all 0.3s ease !important;
             cursor: pointer !important;
             height: 100% !important;
+            min-height: 150px !important;
         }}
         
         .dashboard-card:hover {{
@@ -276,33 +268,11 @@ def apply_global_theme():
             border: 3px solid white !important;
             cursor: pointer !important;
             transition: transform 0.3s ease !important;
+            object-fit: cover !important;
         }}
         
         .profile-picture:hover {{
             transform: scale(1.1) !important;
-        }}
-        
-        /* === NOTIFICATIONS === */
-        .notification-panel {{
-            background-color: var(--card-bg) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 10px !important;
-            padding: 15px !important;
-            max-height: 400px !important;
-            overflow-y: auto !important;
-        }}
-        
-        .notification-item {{
-            background-color: var(--secondary-bg) !important;
-            border-left: 3px solid var(--primary-color) !important;
-            padding: 10px !important;
-            border-radius: 8px !important;
-            margin-bottom: 10px !important;
-        }}
-        
-        .notification-item.unread {{
-            border-left-color: #ff4444 !important;
-            font-weight: 600 !important;
         }}
         
         /* === ANIMATIONS === */
@@ -338,16 +308,6 @@ def apply_global_theme():
         
         ::-webkit-scrollbar-thumb:hover {{
             background: var(--secondary-color) !important;
-        }}
-        
-        /* === GRAPHIQUES PLOTLY === */
-        .js-plotly-plot {{
-            background-color: var(--card-bg) !important;
-        }}
-        
-        /* === DIVIDER === */
-        hr {{
-            border-color: var(--border-color) !important;
         }}
     </style>
     """, unsafe_allow_html=True)
