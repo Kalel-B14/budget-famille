@@ -1,7 +1,3 @@
-"""
-Famileasy - Application de gestion familiale
-Point d'entrée principal
-"""
 import streamlit as st
 from datetime import datetime
 import sys
@@ -15,7 +11,7 @@ sys.path.insert(0, str(services_dir))
 # Imports avec gestion d'erreur
 try:
     from firebase import init_firebase, load_profile_image
-    from parametres_service import get_all_users, get_family_name, get_user_theme
+    from parametres_service import get_all_users, get_family_name
     SERVICES_OK = True
 except ImportError as e:
     SERVICES_OK = False
@@ -27,6 +23,15 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Initialiser Firebase
+if SERVICES_OK:
+    init_firebase()
+    users_list = get_all_users()
+    family_name = get_family_name()
+else:
+    users_list = ['Margaux', 'Souliman']
+    family_name = "Famille Duriez"
 
 # --- STYLES CSS ---
 st.markdown("""
@@ -111,17 +116,27 @@ if 'user_profile' not in st.session_state or st.session_state.user_profile is No
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
+        # Boutons de sélection - Dynamiques
+        num_cols = min(len(users_list), 3)
+        cols = st.columns(num_cols)
         
-        with col1:
-            if st.button("👤 Margaux", use_container_width=True, key="profile_margaux"):
-                st.session_state.user_profile = "Margaux"
-                st.rerun()
-        
-        with col2:
-            if st.button("👤 Souliman", use_container_width=True, key="profile_souliman"):
-                st.session_state.user_profile = "Souliman"
-                st.rerun()
+        for idx, user in enumerate(users_list):
+            with cols[idx % num_cols]:
+                user_image = load_profile_image(user) if SERVICES_OK else None
+                
+                if user_image:
+                    st.markdown(f"""
+                    <div style='text-align: center; margin: 10px;'>
+                        <div style='width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 10px;
+                                    overflow: hidden; border: 3px solid #667eea;'>
+                            <img src='{user_image}' style='width: 100%; height: 100%; object-fit: cover;'>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if st.button(f"👤 {user}", use_container_width=True, key=f"profile_{user}"):
+                    st.session_state.user_profile = user
+                    st.rerun()
         
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("""
@@ -133,16 +148,47 @@ if 'user_profile' not in st.session_state or st.session_state.user_profile is No
     st.stop()
 
 # --- DASHBOARD PRINCIPAL ---
-st.markdown(f"""
-<div class='dashboard-header'>
-    <div style='font-size: 28px; font-weight: bold; color: white; margin-bottom: 5px;'>
-        Famille Duriez ▼
+user_image = load_profile_image(st.session_state.user_profile) if SERVICES_OK else None
+
+col_avatar, col_header, col_settings = st.columns([1, 5, 1])
+
+with col_avatar:
+    if user_image:
+        st.markdown(f"""
+        <div style='width: 60px; height: 60px; border-radius: 50%; overflow: hidden;
+                    border: 3px solid #667eea; margin: 10px auto;'>
+            <img src='{user_image}' style='width: 100%; height: 100%; object-fit: cover;'>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style='width: 60px; height: 60px; border-radius: 50%; margin: 10px auto;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 30px; border: 3px solid white;'>
+            👤
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown(f"<p style='text-align: center; font-size: 12px; color: #a0a0a0;'>{st.session_state.user_profile}</p>", unsafe_allow_html=True)
+
+with col_header:
+    st.markdown(f"""
+    <div class='dashboard-header'>
+        <div style='font-size: 28px; font-weight: bold; color: white; margin-bottom: 5px;'>
+            {family_name} ▼
+        </div>
+        <div style='color: rgba(255, 255, 255, 0.9); font-size: 16px;'>
+            {datetime.now().strftime("%A %d %B")} • 12°C ☀️
+        </div>
     </div>
-    <div style='color: rgba(255, 255, 255, 0.9); font-size: 16px;'>
-        {datetime.now().strftime("%A %d %B")} • 12°C ☀️
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+with col_settings:
+    st.write("")
+    st.write("")
+    if st.button("⚙️", key="settings_btn", help="Paramètres"):
+        st.switch_page("pages/5_⚙️_Parametres.py")
 
 # Bannière d'activité
 st.markdown("""
@@ -193,7 +239,7 @@ with col2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Module Budget (mis en avant)
+# Module Budget
 st.markdown("""
 <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             padding: 25px; border-radius: 20px; height: 180px;'>
@@ -210,45 +256,6 @@ st.markdown("""
 if st.button("📊 Ouvrir le Budget", use_container_width=True, key="btn_budget", type="primary"):
     st.switch_page("pages/budget_page.py")
 
-# Modules supplémentaires
-st.markdown("<br>", unsafe_allow_html=True)
-
-col3, col4 = st.columns(2)
-
-with col3:
-    st.markdown("""
-    <div class='module-card'>
-        <div>
-            <div style='font-size: 48px; margin-bottom: 15px;'>📸</div>
-            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-                Galerie
-            </div>
-            <div style='color: #a0a0a0; font-size: 14px;'>
-                78 photos<br>3 vidéos
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Ouvrir Galerie", use_container_width=True, key="btn_gallery"):
-        st.info("Module en développement")
-
-with col4:
-    st.markdown("""
-    <div class='module-card'>
-        <div>
-            <div style='font-size: 48px; margin-bottom: 15px;'>👨‍👩‍👧‍👦</div>
-            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-                Ma Famille
-            </div>
-            <div style='color: #a0a0a0; font-size: 14px;'>
-                4 membres<br>actifs
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Gérer Famille", use_container_width=True, key="btn_family"):
-        st.info("Module en développement")
-
 # Footer
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"""
@@ -260,3 +267,43 @@ st.markdown(f"""
 if st.button("🚪 Changer de profil", key="logout_footer"):
     st.session_state.user_profile = None
     st.rerun()
+```
+
+### **Étape 4 : Commit**
+
+En bas de la page :
+- Message : `fix: Ajout roue crantée et système de profils complet`
+- Cliquez sur **"Commit changes"**
+
+### **Étape 5 : Attendre le redéploiement**
+
+1. Allez sur votre app Streamlit Cloud
+2. Vous verrez **"Updating..."** en bas
+3. Attendez **2-3 minutes**
+4. Rafraîchissez la page (F5)
+
+### **Étape 6 : Vérifier**
+
+Vous devriez maintenant voir :
+- ✅ Une roue crantée ⚙️ en haut à droite
+- ✅ Photo de profil à gauche (ou icône 👤)
+- ✅ Nom de famille "Famille Duriez"
+
+---
+
+## 🔍 Si ça ne marche toujours pas
+
+**Vérifiez les fichiers sur GitHub :**
+
+Vous devez avoir EXACTEMENT :
+```
+pages/
+├── 5_⚙️_Parametres.py
+└── budget_page.py
+
+services/
+├── __init__.py
+├── firebase.py
+├── budget_service.py
+├── parametres_service.py
+└── utils.py
