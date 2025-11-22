@@ -2,13 +2,21 @@ import streamlit as st
 import sys
 from pathlib import Path
 from datetime import datetime
-import base64
 
 # Ajouter le dossier services au path
-sys.path.append(str(Path(__file__).parent / "services"))
+current_dir = Path(__file__).parent
+services_dir = current_dir / "services"
+sys.path.insert(0, str(services_dir))
 
-from firebase import init_firebase, load_profile_image, get_unread_notifications_count
-from utils import apply_dark_theme
+# Imports avec gestion d'erreur
+try:
+    from firebase import init_firebase, load_profile_image, get_unread_notifications_count
+    from utils import apply_dark_theme
+    IMPORTS_OK = True
+except ImportError as e:
+    st.error(f"⚠️ Erreur d'import: {str(e)}")
+    st.info("Vérifiez que le dossier 'services' existe avec les fichiers firebase.py et utils.py")
+    IMPORTS_OK = False
 
 # --- CONFIGURATION ---
 st.set_page_config(
@@ -18,8 +26,17 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Vérifier les imports
+if not IMPORTS_OK:
+    st.stop()
+
 # Initialiser Firebase
-init_firebase()
+try:
+    init_firebase()
+except Exception as e:
+    st.error(f"⚠️ Erreur Firebase: {str(e)}")
+    st.info("Vérifiez votre fichier .streamlit/secrets.toml")
+    st.stop()
 
 # Appliquer le thème
 apply_dark_theme()
