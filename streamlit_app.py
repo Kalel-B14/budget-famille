@@ -41,6 +41,13 @@ else:
     users_list = ['Margaux', 'Souliman']
     family_name = "Famille Duriez"
 
+# Appliquer le thème de l'utilisateur si connecté
+if SERVICES_OK and 'user_profile' in st.session_state and st.session_state.user_profile is not None:
+    current_mode, current_palette = apply_theme(st.session_state.user_profile)
+else:
+    # Thème par défaut pour l'écran de connexion
+    current_mode, current_palette = 'dark', 'Violet'
+
 # --- STYLES CSS ---
 st.markdown("""
 <style>
