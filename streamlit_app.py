@@ -2,6 +2,7 @@ import streamlit as st
 import sys
 from pathlib import Path
 from datetime import datetime
+from firebase_admin import firestore
 
 # Ajouter le dossier services au path
 current_dir = Path(__file__).parent
@@ -10,7 +11,7 @@ sys.path.insert(0, str(services_dir))
 
 # Imports des services
 try:
-    from firebase import init_firebase, get_firestore_client
+    from firebase import init_firebase
     from utils import check_user_authentication
     from theme_manager import apply_global_theme, create_theme_selector, get_theme_colors
     SERVICES_OK = True
@@ -62,34 +63,34 @@ with header_col2:
     
     # Récupérer la photo de profil depuis Firebase
     try:
-        db = get_firestore_client()
-        if db:
-            profile_ref = db.collection('user_profiles').document(st.session_state.user_profile)
-            profile_doc = profile_ref.get()
+        db = firestore.client()
+        profile_ref = db.collection('user_profiles').document(st.session_state.user_profile)
+        profile_doc = profile_ref.get()
+        
+        if profile_doc.exists:
+            profile_data = profile_doc.to_dict()
+            profile_image = profile_data.get('profile_image', '')
             
-            if profile_doc.exists:
-                profile_data = profile_doc.to_dict()
-                profile_image = profile_data.get('profile_image', '')
-                
-                if profile_image:
-                    # Afficher la photo de profil
-                    if st.button("👤", key="profile_btn", help="Accéder aux paramètres"):
-                        st.switch_page("pages/Parametres.py")
-                    
-                    # Afficher l'image en dessous du bouton
-                    st.markdown(f"""
-                    <img src="data:image/png;base64,{profile_image}" 
-                         class="profile-picture" 
-                         alt="Photo de profil">
-                    """, unsafe_allow_html=True)
-                else:
-                    # Pas de photo, juste un bouton
-                    if st.button("👤", key="profile_btn_no_img", help="Accéder aux paramètres"):
-                        st.switch_page("pages/Parametres.py")
-            else:
-                # Profil n'existe pas, créer un bouton par défaut
-                if st.button("👤", key="profile_btn_default", help="Accéder aux paramètres"):
+            if profile_image:
+                # Afficher la photo de profil cliquable
+                if st.button("👤", key="profile_btn", help="Accéder aux paramètres"):
                     st.switch_page("pages/Parametres.py")
+                
+                # Afficher l'image en dessous du bouton
+                st.markdown(f"""
+                <img src="data:image/png;base64,{profile_image}" 
+                     class="profile-picture" 
+                     alt="Photo de profil"
+                     onclick="document.querySelector('[data-testid=profile_btn]').click()">
+                """, unsafe_allow_html=True)
+            else:
+                # Pas de photo, juste un bouton
+                if st.button("👤", key="profile_btn_no_img", help="Accéder aux paramètres"):
+                    st.switch_page("pages/Parametres.py")
+        else:
+            # Profil n'existe pas, créer un bouton par défaut
+            if st.button("👤", key="profile_btn_default", help="Accéder aux paramètres"):
+                st.switch_page("pages/Parametres.py")
     except Exception as e:
         print(f"Erreur lors du chargement de la photo de profil: {e}")
         # Bouton par défaut en cas d'erreur
@@ -119,62 +120,61 @@ st.divider()
 # --- CARTE CALENDRIER DU JOUR (ENTIÈREMENT CLIQUABLE) ---
 st.subheader("📅 Aujourd'hui")
 
-# Container cliquable pour le calendrier
-calendar_container = st.container()
+# Bouton invisible qui couvre toute la carte du calendrier
+if st.button("Voir le calendrier", key="calendar_main_btn", use_container_width=True, type="primary"):
+    st.switch_page("pages/Agenda.py")
 
-with calendar_container:
-    # Créer une carte cliquable avec du HTML/CSS
-    st.markdown(f"""
-    <div class="dashboard-card" onclick="window.location.href='pages/Agenda.py'" style='
-        background: linear-gradient(135deg, {colors['primary']} 0%, {colors['secondary']} 100%);
-        color: white;
-        cursor: pointer;
-    '>
-        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;'>
-            <h2 style='color: white; margin: 0;'>Mer. 6 Sept.</h2>
-            <div style='
-                background: white;
-                color: {colors['primary']};
-                padding: 10px 15px;
-                border-radius: 10px;
-                font-size: 28px;
-                font-weight: bold;
-            '>
-                6
-            </div>
-        </div>
-        
-        <div style='border-left: 4px solid #ff6b6b; padding: 10px 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border-radius: 8px;'>
-            <div style='font-weight: bold; font-size: 16px;'>Cours de Natation Nina</div>
-            <div style='opacity: 0.9;'>10h30 - 12h30</div>
-        </div>
-        
-        <div style='border-left: 4px solid #9b59b6; padding: 10px 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border-radius: 8px;'>
-            <div style='font-weight: bold; font-size: 16px;'>Cinéma entre Filles</div>
-            <div style='opacity: 0.9;'>14h30 - 16h30</div>
-        </div>
-        
-        <div style='border-left: 4px solid #f39c12; padding: 10px 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border-radius: 8px;'>
-            <div style='font-weight: bold; font-size: 16px;'>Dîner chez Mamie</div>
-            <div style='opacity: 0.9;'>19h30 - 21h30</div>
+# Container pour le calendrier
+st.markdown(f"""
+<div class="dashboard-card" style='
+    background: linear-gradient(135deg, {colors['primary']} 0%, {colors['secondary']} 100%);
+    color: white;
+    min-height: 300px;
+'>
+    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;'>
+        <h2 style='color: white; margin: 0;'>Mer. 6 Sept.</h2>
+        <div style='
+            background: white;
+            color: {colors['primary']};
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 28px;
+            font-weight: bold;
+        '>
+            6
         </div>
     </div>
-    """, unsafe_allow_html=True)
     
-    # Bouton invisible pour la navigation (backup si JS ne fonctionne pas)
-    if st.button("📅 Voir le calendrier complet", key="calendar_btn", use_container_width=True):
-        st.switch_page("pages/Agenda.py")
+    <div style='border-left: 4px solid #ff6b6b; padding: 10px 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border-radius: 8px;'>
+        <div style='font-weight: bold; font-size: 16px;'>Cours de Natation Nina</div>
+        <div style='opacity: 0.9;'>10h30 - 12h30</div>
+    </div>
+    
+    <div style='border-left: 4px solid #9b59b6; padding: 10px 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border-radius: 8px;'>
+        <div style='font-weight: bold; font-size: 16px;'>Cinéma entre Filles</div>
+        <div style='opacity: 0.9;'>14h30 - 16h30</div>
+    </div>
+    
+    <div style='border-left: 4px solid #f39c12; padding: 10px 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border-radius: 8px;'>
+        <div style='font-weight: bold; font-size: 16px;'>Dîner chez Mamie</div>
+        <div style='opacity: 0.9;'>19h30 - 21h30</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.divider()
 
 # --- GRILLE DE MODULES (CARTES ENTIÈREMENT CLIQUABLES) ---
 st.subheader("📱 Modules")
 
-# Créer 3 lignes de 2 cartes
+# Créer 4 lignes de 2 cartes
 col1, col2 = st.columns(2)
 
 with col1:
     # LISTES
+    if st.button("Ouvrir Listes", key="listes_btn", use_container_width=True):
+        st.switch_page("pages/Courses.py")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -183,21 +183,18 @@ with col1:
                 <p>4 listes</p>
                 <p>37 tâches</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 📝
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="listes_btn", help="Ouvrir Listes", use_container_width=True):
-        st.switch_page("pages/Courses.py")
 
 with col2:
     # CALENDRIER
+    if st.button("Ouvrir Calendrier", key="calendrier_btn", use_container_width=True):
+        st.switch_page("pages/Agenda.py")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -206,23 +203,20 @@ with col2:
                 <p>3 événements</p>
                 <p>aujourd'hui</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 📅
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="calendrier_btn", help="Ouvrir Calendrier", use_container_width=True):
-        st.switch_page("pages/Agenda.py")
 
 col3, col4 = st.columns(2)
 
 with col3:
     # EMPLOI DU TEMPS
+    if st.button("Ouvrir Emploi du Temps", key="emploi_btn", use_container_width=True):
+        st.info("Module Emploi du Temps à venir")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -231,21 +225,18 @@ with col3:
                 <p>A venir : Maths</p>
                 <p>10h00</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 🕐
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="emploi_btn", help="Ouvrir Emploi du Temps", use_container_width=True):
-        st.info("Module Emploi du Temps à venir")
 
 with col4:
     # REPAS
+    if st.button("Ouvrir Repas", key="repas_btn", use_container_width=True):
+        st.info("Module Repas à venir")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -254,23 +245,20 @@ with col4:
                 <p>Au dîner:</p>
                 <p>Lasagnes de Mamie</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 🍽️
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="repas_btn", help="Ouvrir Repas", use_container_width=True):
-        st.info("Module Repas à venir")
 
 col5, col6 = st.columns(2)
 
 with col5:
     # GALERIE
+    if st.button("Ouvrir Galerie", key="galerie_btn", use_container_width=True):
+        st.switch_page("pages/Galerie.py")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -279,21 +267,18 @@ with col5:
                 <p>78 photos</p>
                 <p>3 vidéos</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 📸
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="galerie_btn", help="Ouvrir Galerie", use_container_width=True):
-        st.switch_page("pages/Galerie.py")
 
 with col6:
     # MESSAGES
+    if st.button("Ouvrir Messages", key="messages_btn", use_container_width=True):
+        st.info("Module Messages à venir")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -302,24 +287,21 @@ with col6:
                 <p>4 messages</p>
                 <p>non lus</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 💬
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="messages_btn", help="Ouvrir Messages", use_container_width=True):
-        st.info("Module Messages à venir")
 
-# Ajouter la carte BUDGET en plus
+# Ajouter la carte BUDGET et PARAMÈTRES
 col7, col8 = st.columns(2)
 
 with col7:
     # BUDGET
+    if st.button("Ouvrir Budget", key="budget_btn", use_container_width=True):
+        st.switch_page("pages/Budget.py")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -328,21 +310,18 @@ with col7:
                 <p>Gérer vos</p>
                 <p>finances</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 💰
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="budget_btn", help="Ouvrir Budget", use_container_width=True):
-        st.switch_page("pages/Budget.py")
 
 with col8:
     # PARAMÈTRES
+    if st.button("Ouvrir Paramètres", key="parametres_btn", use_container_width=True):
+        st.switch_page("pages/Parametres.py")
+    
     st.markdown(f"""
     <div class="dashboard-card">
         <div style='display: flex; justify-content: space-between; align-items: center;'>
@@ -351,18 +330,12 @@ with col8:
                 <p>Configuration</p>
                 <p>de l'app</p>
             </div>
-            <div style='
-                font-size: 40px;
-                color: {colors['primary']};
-            '>
+            <div style='font-size: 40px; color: {colors['primary']};'>
                 ⚙️
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("", key="parametres_btn", help="Ouvrir Paramètres", use_container_width=True):
-        st.switch_page("pages/Parametres.py")
 
 # --- SIDEBAR ---
 with st.sidebar:
