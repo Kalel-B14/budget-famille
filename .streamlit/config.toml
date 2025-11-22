@@ -1,0 +1,17 @@
+# .streamlit/config.toml
+[server]
+headless = true
+```
+
+Puis dans **Streamlit Cloud** :
+1. Menu ⋮ → **"Delete app"** 
+2. **Redéployez** votre app depuis GitHub
+
+## 🎯 Vérification de votre Structure
+
+Votre arborescence actuelle :
+```
+✅ streamlit_app.py (à la racine)
+✅ pages/budget_page.py
+✅ services/
+✅ requirements.txt
