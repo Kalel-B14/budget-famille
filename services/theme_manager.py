@@ -1,11 +1,15 @@
 """
-Gestionnaire de thème global pour l'application Famileasy
+Gestionnaire de thème global pour Famileasy
 """
 
 import streamlit as st
-from firebase_admin import firestore
 
-# Couleurs disponibles
+try:
+    from firebase_admin import firestore
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
+
 COULEURS_DISPONIBLES = {
     "Violet": {"primary": "#667eea", "secondary": "#764ba2"},
     "Bleu": {"primary": "#4A90E2", "secondary": "#2E5C8A"},
@@ -18,18 +22,19 @@ COULEURS_DISPONIBLES = {
 }
 
 def init_theme_state():
-    """Initialise l'état du thème dans session_state"""
+    """Initialise le thème"""
     if 'theme_mode' not in st.session_state:
         st.session_state.theme_mode = 'dark'
-    
     if 'theme_color' not in st.session_state:
         st.session_state.theme_color = 'Violet'
-    
     if 'theme_initialized' not in st.session_state:
         st.session_state.theme_initialized = False
 
 def load_user_theme_preferences(username):
-    """Charge les préférences de thème depuis Firebase"""
+    """Charge les préférences depuis Firebase"""
+    if not FIREBASE_AVAILABLE:
+        return
+    
     try:
         db = firestore.client()
         theme_ref = db.collection('user_theme_preferences').document(username)
@@ -41,12 +46,14 @@ def load_user_theme_preferences(username):
             st.session_state.theme_color = theme_data.get('color', 'Violet')
         
         st.session_state.theme_initialized = True
-        
     except Exception as e:
         print(f"Erreur chargement thème: {e}")
 
 def save_user_theme_preferences(username, mode, color):
-    """Sauvegarde les préférences de thème dans Firebase"""
+    """Sauvegarde dans Firebase"""
+    if not FIREBASE_AVAILABLE:
+        return False
+    
     try:
         db = firestore.client()
         theme_ref = db.collection('user_theme_preferences').document(username)
@@ -57,17 +64,16 @@ def save_user_theme_preferences(username, mode, color):
         })
         return True
     except Exception as e:
-        print(f"Erreur sauvegarde thème: {e}")
+        print(f"Erreur sauvegarde: {e}")
         return False
 
 def get_theme_colors():
-    """Retourne les couleurs du thème actuel"""
+    """Retourne les couleurs actuelles"""
     color_name = st.session_state.get('theme_color', 'Violet')
     return COULEURS_DISPONIBLES.get(color_name, COULEURS_DISPONIBLES['Violet'])
 
 def apply_global_theme():
-    """Applique le thème global à toute l'application"""
-    
+    """Applique le thème CSS"""
     init_theme_state()
     
     if 'user_profile' in st.session_state and st.session_state.user_profile:
@@ -122,22 +128,18 @@ def apply_global_theme():
         }}
         
         [data-testid="stMetric"] {{
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
             padding: 20px !important;
             border-radius: 10px !important;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
         }}
         
-        [data-testid="stMetric"] label {{
-            color: white !important;
-        }}
-        
+        [data-testid="stMetric"] label, 
         [data-testid="stMetric"] [data-testid="stMetricValue"] {{
             color: white !important;
         }}
         
         .stButton button {{
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
             color: white !important;
             border: none !important;
             border-radius: 8px !important;
@@ -164,11 +166,10 @@ def apply_global_theme():
         
         .stTabs [data-baseweb="tab"] {{
             color: var(--text-color) !important;
-            background-color: var(--card-bg) !important;
         }}
         
         .stTabs [aria-selected="true"] {{
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
             color: white !important;
         }}
         
@@ -177,10 +178,8 @@ def apply_global_theme():
             border: 1px solid var(--border-color) !important;
             border-radius: 12px !important;
             padding: 20px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
             transition: all 0.3s ease !important;
             cursor: pointer !important;
-            height: 100% !important;
             min-height: 150px !important;
         }}
         
@@ -192,24 +191,17 @@ def apply_global_theme():
         
         .dashboard-card h3 {{
             color: var(--primary-color) !important;
-            margin-bottom: 10px !important;
-        }}
-        
-        .dashboard-card p {{
-            color: var(--text-secondary) !important;
         }}
         
         .header-container {{
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
             border-radius: 20px !important;
             padding: 30px !important;
             margin-bottom: 30px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
         }}
         
         .header-container h1 {{
             color: white !important;
-            margin: 0 !important;
         }}
         
         .profile-picture {{
@@ -217,13 +209,7 @@ def apply_global_theme():
             height: 50px !important;
             border-radius: 50% !important;
             border: 3px solid white !important;
-            cursor: pointer !important;
-            transition: transform 0.3s ease !important;
             object-fit: cover !important;
-        }}
-        
-        .profile-picture:hover {{
-            transform: scale(1.1) !important;
         }}
         
         @keyframes slideIn {{
@@ -257,27 +243,25 @@ def apply_global_theme():
     """, unsafe_allow_html=True)
 
 def create_theme_selector():
-    """Crée un sélecteur de thème dans la sidebar"""
-    
+    """Sélecteur de thème dans la sidebar"""
     st.sidebar.markdown("---")
     st.sidebar.subheader("🎨 Thème")
     
     current_mode = st.session_state.get('theme_mode', 'dark')
     mode_options = {"Mode Sombre 🌙": "dark", "Mode Clair ☀️": "light"}
     
-    selected_mode_label = st.sidebar.radio(
+    selected = st.sidebar.radio(
         "Mode d'affichage",
-        options=list(mode_options.keys()),
+        list(mode_options.keys()),
         index=0 if current_mode == "dark" else 1,
         key="theme_mode_selector"
     )
-    
-    new_mode = mode_options[selected_mode_label]
+    new_mode = mode_options[selected]
     
     current_color = st.session_state.get('theme_color', 'Violet')
     new_color = st.sidebar.selectbox(
         "Couleur primaire",
-        options=list(COULEURS_DISPONIBLES.keys()),
+        list(COULEURS_DISPONIBLES.keys()),
         index=list(COULEURS_DISPONIBLES.keys()).index(current_color),
         key="theme_color_selector"
     )
@@ -296,7 +280,7 @@ def create_theme_selector():
     st.sidebar.markdown(
         f"""
         <div style='
-            background: linear-gradient(135deg, {colors['primary']} 0%, {colors['secondary']} 100%);
+            background: linear-gradient(135deg, {colors['primary']}, {colors['secondary']});
             padding: 20px;
             border-radius: 10px;
             text-align: center;
