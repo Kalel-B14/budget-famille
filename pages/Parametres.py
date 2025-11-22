@@ -43,9 +43,11 @@ if SERVICES_OK:
     init_firebase()
     # Appliquer le thème de l'utilisateur
     current_mode, current_palette = apply_theme(st.session_state.user_profile)
+    palette = PALETTES[current_palette]
 else:
     current_mode = 'dark'
     current_palette = 'Violet'
+    palette = PALETTES['Violet']
 
 # --- EN-TÊTE ---
 col_back, col_title = st.columns([1, 5])
@@ -139,8 +141,8 @@ with tabs[1]:
                 st.markdown(f"""
                 <div class='metric-card' style='text-align: center;'>
                     <div style='width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 10px;
-                                background: {palette['gradient']}; overflow: hidden;
-                                border: 3px solid {palette['primary']};'>
+                                background: {palette.get('gradient', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')}; overflow: hidden;
+                                border: 3px solid {palette.get('primary', '#667eea')};'>
                         {"<img src='" + user_image + "' style='width: 100%; height: 100%; object-fit: cover;'>" if user_image else "<div style='font-size: 40px; padding-top: 20px;'>👤</div>"}
                     </div>
                     <div style='font-weight: bold; margin-bottom: 10px;'>{user}</div>
