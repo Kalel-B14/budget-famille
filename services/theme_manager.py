@@ -1,6 +1,5 @@
 """
 Gestionnaire de thème global pour l'application Famileasy
-Ce module gère les préférences de thème (clair/sombre) et de couleur primaire
 """
 
 import streamlit as st
@@ -21,20 +20,18 @@ COULEURS_DISPONIBLES = {
 def init_theme_state():
     """Initialise l'état du thème dans session_state"""
     if 'theme_mode' not in st.session_state:
-        st.session_state.theme_mode = 'dark'  # Mode sombre par défaut
+        st.session_state.theme_mode = 'dark'
     
     if 'theme_color' not in st.session_state:
-        st.session_state.theme_color = 'Violet'  # Couleur par défaut
+        st.session_state.theme_color = 'Violet'
     
     if 'theme_initialized' not in st.session_state:
         st.session_state.theme_initialized = False
 
 def load_user_theme_preferences(username):
-    """Charge les préférences de thème de l'utilisateur depuis Firebase"""
+    """Charge les préférences de thème depuis Firebase"""
     try:
         db = firestore.client()
-        
-        # Charger les préférences de thème
         theme_ref = db.collection('user_theme_preferences').document(username)
         theme_doc = theme_ref.get()
         
@@ -46,24 +43,21 @@ def load_user_theme_preferences(username):
         st.session_state.theme_initialized = True
         
     except Exception as e:
-        print(f"Erreur lors du chargement des préférences de thème: {e}")
+        print(f"Erreur chargement thème: {e}")
 
 def save_user_theme_preferences(username, mode, color):
-    """Sauvegarde les préférences de thème de l'utilisateur dans Firebase"""
+    """Sauvegarde les préférences de thème dans Firebase"""
     try:
         db = firestore.client()
-        
         theme_ref = db.collection('user_theme_preferences').document(username)
         theme_ref.set({
             'mode': mode,
             'color': color,
             'updated_at': firestore.SERVER_TIMESTAMP
         })
-        
         return True
-        
     except Exception as e:
-        print(f"Erreur lors de la sauvegarde des préférences de thème: {e}")
+        print(f"Erreur sauvegarde thème: {e}")
         return False
 
 def get_theme_colors():
@@ -72,21 +66,17 @@ def get_theme_colors():
     return COULEURS_DISPONIBLES.get(color_name, COULEURS_DISPONIBLES['Violet'])
 
 def apply_global_theme():
-    """Applique le thème global à toute l'application avec CSS personnalisé"""
+    """Applique le thème global à toute l'application"""
     
-    # Initialiser le thème si ce n'est pas fait
     init_theme_state()
     
-    # Charger les préférences si l'utilisateur est connecté
     if 'user_profile' in st.session_state and st.session_state.user_profile:
         if not st.session_state.get('theme_initialized', False):
             load_user_theme_preferences(st.session_state.user_profile)
     
-    # Obtenir les couleurs
     colors = get_theme_colors()
     mode = st.session_state.get('theme_mode', 'dark')
     
-    # Couleurs en fonction du mode
     if mode == 'dark':
         bg_color = "#0e1117"
         secondary_bg = "#1a1d24"
@@ -102,10 +92,8 @@ def apply_global_theme():
         text_secondary = "#666666"
         border_color = "#e0e0e0"
     
-    # CSS global
     st.markdown(f"""
     <style>
-        /* === VARIABLES CSS === */
         :root {{
             --primary-color: {colors['primary']};
             --secondary-color: {colors['secondary']};
@@ -117,38 +105,22 @@ def apply_global_theme():
             --border-color: {border_color};
         }}
         
-        /* === BACKGROUND PRINCIPAL === */
         .stApp {{
             background-color: var(--bg-color) !important;
         }}
         
-        /* === SIDEBAR === */
         [data-testid="stSidebar"] {{
             background-color: var(--secondary-bg) !important;
         }}
         
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
-            color: var(--text-color) !important;
-        }}
-        
-        /* === HEADER / TITRE === */
         h1, h2, h3, h4, h5, h6 {{
             color: var(--text-color) !important;
         }}
         
-        /* === TEXTE === */
         p, span, div, label {{
             color: var(--text-color) !important;
         }}
         
-        /* === CARTES / CONTAINERS === */
-        [data-testid="stVerticalBlock"] > div {{
-            background-color: var(--card-bg) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 10px !important;
-        }}
-        
-        /* === MÉTRIQUES === */
         [data-testid="stMetric"] {{
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
             padding: 20px !important;
@@ -164,11 +136,6 @@ def apply_global_theme():
             color: white !important;
         }}
         
-        [data-testid="stMetric"] [data-testid="stMetricDelta"] {{
-            color: white !important;
-        }}
-        
-        /* === BOUTONS === */
         .stButton button {{
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
             color: white !important;
@@ -184,7 +151,6 @@ def apply_global_theme():
             box-shadow: 0 6px 12px rgba(0,0,0,0.2) !important;
         }}
         
-        /* === INPUTS === */
         .stTextInput input, .stNumberInput input, .stSelectbox select {{
             background-color: var(--card-bg) !important;
             color: var(--text-color) !important;
@@ -192,12 +158,6 @@ def apply_global_theme():
             border-radius: 8px !important;
         }}
         
-        /* === DATAFRAME === */
-        [data-testid="stDataFrame"] {{
-            background-color: var(--card-bg) !important;
-        }}
-        
-        /* === TABS === */
         .stTabs [data-baseweb="tab-list"] {{
             background-color: var(--secondary-bg) !important;
         }}
@@ -212,14 +172,6 @@ def apply_global_theme():
             color: white !important;
         }}
         
-        /* === EXPANDER === */
-        .streamlit-expanderHeader {{
-            background-color: var(--card-bg) !important;
-            color: var(--text-color) !important;
-            border: 1px solid var(--border-color) !important;
-        }}
-        
-        /* === CARTES PERSONNALISÉES === */
         .dashboard-card {{
             background: var(--card-bg) !important;
             border: 1px solid var(--border-color) !important;
@@ -247,7 +199,6 @@ def apply_global_theme():
             color: var(--text-secondary) !important;
         }}
         
-        /* === HEADER AVEC PHOTO DE PROFIL === */
         .header-container {{
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
             border-radius: 20px !important;
@@ -275,7 +226,6 @@ def apply_global_theme():
             transform: scale(1.1) !important;
         }}
         
-        /* === ANIMATIONS === */
         @keyframes slideIn {{
             from {{
                 opacity: 0;
@@ -291,10 +241,8 @@ def apply_global_theme():
             animation: slideIn 0.5s ease-out !important;
         }}
         
-        /* === SCROLLBAR === */
         ::-webkit-scrollbar {{
             width: 10px !important;
-            height: 10px !important;
         }}
         
         ::-webkit-scrollbar-track {{
@@ -305,10 +253,6 @@ def apply_global_theme():
             background: var(--primary-color) !important;
             border-radius: 5px !important;
         }}
-        
-        ::-webkit-scrollbar-thumb:hover {{
-            background: var(--secondary-color) !important;
-        }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -318,10 +262,8 @@ def create_theme_selector():
     st.sidebar.markdown("---")
     st.sidebar.subheader("🎨 Thème")
     
-    # Mode clair/sombre
     current_mode = st.session_state.get('theme_mode', 'dark')
     mode_options = {"Mode Sombre 🌙": "dark", "Mode Clair ☀️": "light"}
-    current_mode_label = "Mode Sombre 🌙" if current_mode == "dark" else "Mode Clair ☀️"
     
     selected_mode_label = st.sidebar.radio(
         "Mode d'affichage",
@@ -332,7 +274,6 @@ def create_theme_selector():
     
     new_mode = mode_options[selected_mode_label]
     
-    # Couleur primaire
     current_color = st.session_state.get('theme_color', 'Violet')
     new_color = st.sidebar.selectbox(
         "Couleur primaire",
@@ -341,23 +282,16 @@ def create_theme_selector():
         key="theme_color_selector"
     )
     
-    # Sauvegarder si changement
     if new_mode != st.session_state.theme_mode or new_color != st.session_state.theme_color:
         st.session_state.theme_mode = new_mode
         st.session_state.theme_color = new_color
         
-        # Sauvegarder dans Firebase
         if 'user_profile' in st.session_state and st.session_state.user_profile:
-            if save_user_theme_preferences(
-                st.session_state.user_profile,
-                new_mode,
-                new_color
-            ):
+            if save_user_theme_preferences(st.session_state.user_profile, new_mode, new_color):
                 st.sidebar.success("✅ Thème sauvegardé")
         
         st.rerun()
     
-    # Aperçu des couleurs
     colors = get_theme_colors()
     st.sidebar.markdown(
         f"""
