@@ -18,6 +18,7 @@ try:
                          get_unread_notifications_count)
     from budget_service import (add_expense, add_revenue, fetch_expenses, fetch_revenues,
                                 delete_expense, delete_revenue, CATEGORIES_DEPENSES)
+    from theme_manager import apply_theme
     SERVICES_OK = True
 except ImportError as e:
     st.error(f"⚠️ Erreur d'import: {str(e)}")
@@ -40,31 +41,24 @@ if 'user_profile' not in st.session_state or st.session_state.user_profile is No
 # Initialiser Firebase
 if SERVICES_OK:
     init_firebase()
+    # Appliquer le thème de l'utilisateur
+    apply_theme(st.session_state.user_profile)
+else:
+    # Thème par défaut
+    from theme_manager import apply_theme
+    apply_theme(None)
 
 # --- STYLES ---
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #1a1d24;
-        color: #e0e0e0;
+    /* Styles additionnels spécifiques au module Budget */
+    .budget-header {
+        animation: slideIn 0.5s ease-out;
     }
-    h1, h2, h3 {
-        color: #ffffff !important;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #2d3142 0%, #1f2230 100%);
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        margin-bottom: 20px;
-    }
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px;
-    }
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
     }
 </style>
 """, unsafe_allow_html=True)
