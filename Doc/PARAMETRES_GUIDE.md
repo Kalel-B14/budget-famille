@@ -1,3 +1,4 @@
+[PARAMETRES_GUIDE.md](https://github.com/user-attachments/files/23691680/PARAMETRES_GUIDE.md)
 # 🎨 Module Paramètres - Guide Complet
 
 ## ✨ Fonctionnalités Implémentées
