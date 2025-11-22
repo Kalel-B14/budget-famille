@@ -3,5 +3,3 @@ pandas
 plotly
 openpyxl
 firebase-admin==6.2.0
-
-
