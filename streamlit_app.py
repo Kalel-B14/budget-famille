@@ -121,7 +121,7 @@ if 'user_profile' not in st.session_state or st.session_state.user_profile is No
 st.markdown(f"""
 <div class='dashboard-header'>
     <div style='font-size: 28px; font-weight: bold; color: white; margin-bottom: 5px;'>
-        Famille Martin ▼
+        Famille Duriez ▼
     </div>
     <div style='color: rgba(255, 255, 255, 0.9); font-size: 16px;'>
         {datetime.now().strftime("%A %d %B")} • 12°C ☀️
