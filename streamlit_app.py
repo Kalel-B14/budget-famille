@@ -167,100 +167,149 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Style CSS pour les cartes cliquables
+st.markdown("""
+<style>
+    /* Masquer les boutons Streamlit par défaut dans les cartes */
+    div[data-testid="column"] > div > div > div > button {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 10;
+    }
+    
+    /* Style pour les cartes modules avec effet au survol */
+    .clickable-card {
+        position: relative;
+        background: linear-gradient(135deg, #2d3142 0%, #1f2230 100%);
+        padding: 25px;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        cursor: pointer;
+        height: 180px;
+        border: 2px solid transparent;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .clickable-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.5);
+        border: 2px solid #667eea;
+        background: linear-gradient(135deg, #3d4152 0%, #2d3142 100%);
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Modules - Ligne 1
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-    <div class='module-card'>
-        <div>
-            <div style='font-size: 48px; margin-bottom: 15px;'>📝</div>
-            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-                Listes
-            </div>
-            <div style='color: #a0a0a0; font-size: 14px;'>
-                4 listes<br>37 éléments
-            </div>
+    <div class='clickable-card'>
+        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📝</div>
+        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+            Listes
+        </div>
+        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+            4 listes • 37 éléments
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Ouvrir Listes", use_container_width=True, key="btn_listes"):
+    if st.button("​", key="btn_listes", use_container_width=True):
         st.info("Module en développement")
 
 with col2:
     st.markdown("""
-    <div class='module-card'>
-        <div>
-            <div style='font-size: 48px; margin-bottom: 15px;'>📅</div>
-            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-                Calendrier
-            </div>
-            <div style='color: #a0a0a0; font-size: 14px;'>
-                4 événements<br>cette semaine
-            </div>
+    <div class='clickable-card'>
+        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📅</div>
+        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+            Calendrier
+        </div>
+        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+            4 événements cette semaine
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Ouvrir Calendrier", use_container_width=True, key="btn_calendar"):
+    if st.button("​", key="btn_calendar", use_container_width=True):
         st.info("Module en développement")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Module Budget (mis en avant)
-st.markdown("""
-<div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 25px; border-radius: 20px; height: 180px;'>
-    <div style='font-size: 48px; margin-bottom: 15px;'>💰</div>
-    <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-        Budget Familial
-    </div>
-    <div style='color: rgba(255, 255, 255, 0.9); font-size: 14px;'>
-        Gérez vos finances<br>en toute simplicité
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-if st.button("📊 Ouvrir le Budget", use_container_width=True, key="btn_budget", type="primary"):
-    st.switch_page("pages/budget_page.py")
-
-# Modules supplémentaires
-st.markdown("<br>", unsafe_allow_html=True)
-
+# Modules - Ligne 2
 col3, col4 = st.columns(2)
 
 with col3:
     st.markdown("""
-    <div class='module-card'>
-        <div>
-            <div style='font-size: 48px; margin-bottom: 15px;'>📸</div>
-            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-                Galerie
-            </div>
-            <div style='color: #a0a0a0; font-size: 14px;'>
-                78 photos<br>3 vidéos
-            </div>
+    <div class='clickable-card'>
+        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>💰</div>
+        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+            Budget Familial
+        </div>
+        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+            Gérez vos finances en toute simplicité
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Ouvrir Galerie", use_container_width=True, key="btn_gallery"):
-        st.info("Module en développement")
+    if st.button("​", key="btn_budget", use_container_width=True):
+        st.switch_page("pages/budget_page.py")
 
 with col4:
     st.markdown("""
-    <div class='module-card'>
-        <div>
-            <div style='font-size: 48px; margin-bottom: 15px;'>👨‍👩‍👧‍👦</div>
-            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px;'>
-                Ma Famille
-            </div>
-            <div style='color: #a0a0a0; font-size: 14px;'>
-                4 membres<br>actifs
-            </div>
+    <div class='clickable-card'>
+        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📸</div>
+        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+            Galerie
+        </div>
+        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+            78 photos • 3 vidéos
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Gérer Famille", use_container_width=True, key="btn_family"):
+    if st.button("​", key="btn_gallery", use_container_width=True):
         st.info("Module en développement")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# Modules - Ligne 3
+col5, col6 = st.columns(2)
+
+with col5:
+    st.markdown("""
+    <div class='clickable-card'>
+        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>👨‍👩‍👧‍👦</div>
+        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+            Ma Famille
+        </div>
+        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+            4 membres actifs
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("​", key="btn_family", use_container_width=True):
+        st.info("Module en développement")
+
+with col6:
+    # Carte vide pour la symétrie (ou ajoutez un autre module)
+    st.markdown("""
+    <div class='clickable-card' style='opacity: 0.5;'>
+        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>➕</div>
+        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+            Bientôt disponible
+        </div>
+        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+            Nouveau module à venir
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("​", key="btn_coming_soon", use_container_width=True):
+        st.info("Fonctionnalité à venir")
 
 # Footer
 st.markdown("<br><br>", unsafe_allow_html=True)
