@@ -4,6 +4,21 @@ Point d'entrée principal
 """
 import streamlit as st
 from datetime import datetime
+import sys
+from pathlib import Path
+
+# Ajouter le dossier services au path
+current_dir = Path(__file__).parent
+services_dir = current_dir / "services"
+sys.path.insert(0, str(services_dir))
+
+# Imports avec gestion d'erreur
+try:
+    from firebase import init_firebase, load_profile_image
+    from parametres_service import get_all_users, get_family_name, get_user_theme
+    SERVICES_OK = True
+except ImportError as e:
+    SERVICES_OK = False
 
 # --- CONFIGURATION ---
 st.set_page_config(
