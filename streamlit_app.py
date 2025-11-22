@@ -15,7 +15,8 @@ sys.path.insert(0, str(services_dir))
 # Imports avec gestion d'erreur
 try:
     from firebase import init_firebase, load_profile_image
-    from parametres_service import get_all_users, get_family_name, get_user_theme
+    from parametres_service import get_all_users, get_family_name
+    from theme_manager import apply_theme
     SERVICES_OK = True
 except ImportError as e:
     SERVICES_OK = False
@@ -43,56 +44,14 @@ else:
 # --- STYLES CSS ---
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #1a1d24;
-        color: #e0e0e0;
+    /* Styles additionnels spécifiques à la page d'accueil */
+    .welcome-section {
+        animation: fadeIn 0.6s ease-in;
     }
     
-    h1, h2, h3 {
-        color: #ffffff !important;
-    }
-    
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 10px 20px;
-        font-weight: 500;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    .module-card {
-        background: linear-gradient(135deg, #2d3142 0%, #1f2230 100%);
-        padding: 25px;
-        border-radius: 20px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        cursor: pointer;
-        height: 180px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        border: 2px solid transparent;
-    }
-    
-    .module-card:hover {
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.5);
-        border: 2px solid #667eea;
-        background: linear-gradient(135deg, #3d4152 0%, #2d3142 100%);
-    }
-    
-    .dashboard-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 30px;
-        border-radius: 20px;
-        margin-bottom: 30px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 </style>
 """, unsafe_allow_html=True)
