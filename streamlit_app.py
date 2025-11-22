@@ -170,11 +170,6 @@ st.markdown("""
 # Style CSS pour les cartes cliquables
 st.markdown("""
 <style>
-    /* Masquer complètement les boutons */
-    div[data-testid="column"] > div > div > div > button {
-        display: none !important;
-    }
-    
     /* Style pour les cartes modules avec effet au survol */
     .clickable-card {
         position: relative;
@@ -189,6 +184,7 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         justify-content: center;
+        margin-bottom: 20px;
     }
     
     .clickable-card:hover {
@@ -197,110 +193,158 @@ st.markdown("""
         border: 2px solid #667eea;
         background: linear-gradient(135deg, #3d4152 0%, #2d3142 100%);
     }
+    
+    /* Responsive mobile */
+    @media (max-width: 768px) {
+        .clickable-card {
+            height: 150px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .clickable-card:hover {
+            transform: translateY(-5px) scale(1.01);
+        }
+    }
+    
+    /* Masquer les boutons mais garder leur fonctionnalité */
+    .stButton button {
+        opacity: 0;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        cursor: pointer;
+        z-index: 999;
+    }
+    
+    .stButton {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        z-index: 998;
+    }
+    
+    /* Conteneur de colonne pour positioning */
+    div[data-testid="column"] {
+        position: relative;
+    }
 </style>
 """, unsafe_allow_html=True)
-
-# Vérifier si un module a été cliqué via query params
-query_params = st.query_params
-if "module" in query_params:
-    module = query_params["module"]
-    if module == "budget":
-        st.switch_page("pages/budget_page.py")
-    elif module in ["listes", "calendrier", "galerie", "famille"]:
-        st.info(f"Module {module.capitalize()} en développement")
-    # Nettoyer les query params
-    st.query_params.clear()
 
 # Modules - Ligne 1
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("""
-    <div class='clickable-card' onclick="window.location.href='?module=listes'">
-        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📝</div>
-        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
-            Listes
+    container1 = st.container()
+    with container1:
+        st.markdown("""
+        <div class='clickable-card'>
+            <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📝</div>
+            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+                Listes
+            </div>
+            <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+                4 listes • 37 éléments
+            </div>
         </div>
-        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
-            4 listes • 37 éléments
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("Listes", key="btn_listes"):
+            st.info("Module en développement")
 
 with col2:
-    st.markdown("""
-    <div class='clickable-card' onclick="window.location.href='?module=calendrier'">
-        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📅</div>
-        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
-            Calendrier
+    container2 = st.container()
+    with container2:
+        st.markdown("""
+        <div class='clickable-card'>
+            <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📅</div>
+            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+                Calendrier
+            </div>
+            <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+                4 événements cette semaine
+            </div>
         </div>
-        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
-            4 événements cette semaine
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("Calendrier", key="btn_calendar"):
+            st.info("Module en développement")
 
 # Modules - Ligne 2
 col3, col4 = st.columns(2)
 
 with col3:
-    st.markdown("""
-    <div class='clickable-card' onclick="window.location.href='?module=budget'">
-        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>💰</div>
-        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
-            Budget Familial
+    container3 = st.container()
+    with container3:
+        st.markdown("""
+        <div class='clickable-card'>
+            <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>💰</div>
+            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+                Budget Familial
+            </div>
+            <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+                Gérez vos finances en toute simplicité
+            </div>
         </div>
-        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
-            Gérez vos finances en toute simplicité
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("Budget", key="btn_budget"):
+            st.switch_page("pages/budget_page.py")
 
 with col4:
-    st.markdown("""
-    <div class='clickable-card' onclick="window.location.href='?module=galerie'">
-        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📸</div>
-        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
-            Galerie
+    container4 = st.container()
+    with container4:
+        st.markdown("""
+        <div class='clickable-card'>
+            <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>📸</div>
+            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+                Galerie
+            </div>
+            <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+                78 photos • 3 vidéos
+            </div>
         </div>
-        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
-            78 photos • 3 vidéos
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("Galerie", key="btn_gallery"):
+            st.info("Module en développement")
 
 # Modules - Ligne 3
 col5, col6 = st.columns(2)
 
 with col5:
-    st.markdown("""
-    <div class='clickable-card' onclick="window.location.href='?module=famille'">
-        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>👨‍👩‍👧‍👦</div>
-        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
-            Ma Famille
+    container5 = st.container()
+    with container5:
+        st.markdown("""
+        <div class='clickable-card'>
+            <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>👨‍👩‍👧‍👦</div>
+            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+                Ma Famille
+            </div>
+            <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+                4 membres actifs
+            </div>
         </div>
-        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
-            4 membres actifs
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("Ma Famille", key="btn_family"):
+            st.info("Module en développement")
 
 with col6:
-    st.markdown("""
-    <div class='clickable-card' style='opacity: 0.5;' onclick="window.location.href='?module=coming'">
-        <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>➕</div>
-        <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
-            Bientôt disponible
+    container6 = st.container()
+    with container6:
+        st.markdown("""
+        <div class='clickable-card' style='opacity: 0.5;'>
+            <div style='font-size: 48px; margin-bottom: 15px; text-align: center;'>➕</div>
+            <div style='font-size: 22px; font-weight: bold; color: #ffffff; margin-bottom: 5px; text-align: center;'>
+                Bientôt disponible
+            </div>
+            <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
+                Nouveau module à venir
+            </div>
         </div>
-        <div style='color: #a0a0a0; font-size: 14px; text-align: center;'>
-            Nouveau module à venir
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("Bientôt", key="btn_coming_soon"):
+            st.info("Fonctionnalité à venir")
 
 # Footer
 st.markdown("<br><br>", unsafe_allow_html=True)
