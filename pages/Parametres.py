@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 from pathlib import Path
+from firebase_admin import firestore
 
 # Ajouter le dossier services au path
 current_dir = Path(__file__).parent.parent
@@ -9,7 +10,7 @@ sys.path.insert(0, str(services_dir))
 
 # Imports des services
 try:
-    from firebase import init_firebase, get_firestore_client
+    from firebase import init_firebase
     from utils import check_user_authentication
     from theme_manager import (
         apply_global_theme, 
@@ -48,7 +49,7 @@ col_back, col_title = st.columns([1, 5])
 
 with col_back:
     if st.button("← Retour"):
-        st.switch_page("Home.py")
+        st.switch_page("streamlit_app.py")
 
 with col_title:
     st.title("⚙️ Paramètres")
@@ -187,73 +188,72 @@ with tabs[1]:
         
         # Récupérer la photo actuelle
         try:
-            db = get_firestore_client()
-            if db:
-                profile_ref = db.collection('user_profiles').document(st.session_state.user_profile)
-                profile_doc = profile_ref.get()
+            db = firestore.client()
+            profile_ref = db.collection('user_profiles').document(st.session_state.user_profile)
+            profile_doc = profile_ref.get()
+            
+            current_image = None
+            if profile_doc.exists:
+                profile_data = profile_doc.to_dict()
+                current_image = profile_data.get('profile_image', '')
+            
+            # Afficher la photo actuelle
+            if current_image:
+                st.markdown(f"""
+                <div style='text-align: center;'>
+                    <img src="data:image/png;base64,{current_image}" 
+                         style='width: 150px; height: 150px; border-radius: 50%; border: 5px solid {colors["primary"]};'>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='
+                    width: 150px; 
+                    height: 150px; 
+                    border-radius: 50%; 
+                    border: 5px solid {colors["primary"]};
+                    background: linear-gradient(135deg, {colors["primary"]} 0%, {colors["secondary"]} 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 60px;
+                    color: white;
+                    margin: 0 auto;
+                '>
+                    👤
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Upload de nouvelle photo
+            uploaded_file = st.file_uploader(
+                "Changer la photo",
+                type=['png', 'jpg', 'jpeg'],
+                key="profile_photo_upload"
+            )
+            
+            if uploaded_file is not None:
+                import base64
+                from PIL import Image
+                import io
                 
-                current_image = None
-                if profile_doc.exists:
-                    profile_data = profile_doc.to_dict()
-                    current_image = profile_data.get('profile_image', '')
+                # Convertir en base64
+                image = Image.open(uploaded_file)
+                # Redimensionner
+                image.thumbnail((200, 200))
+                buffered = io.BytesIO()
+                image.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
                 
-                # Afficher la photo actuelle
-                if current_image:
-                    st.markdown(f"""
-                    <div style='text-align: center;'>
-                        <img src="data:image/png;base64,{current_image}" 
-                             style='width: 150px; height: 150px; border-radius: 50%; border: 5px solid {colors["primary"]};'>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style='
-                        width: 150px; 
-                        height: 150px; 
-                        border-radius: 50%; 
-                        border: 5px solid {colors["primary"]};
-                        background: linear-gradient(135deg, {colors["primary"]} 0%, {colors["secondary"]} 100%);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 60px;
-                        color: white;
-                        margin: 0 auto;
-                    '>
-                        👤
-                    </div>
-                    """, unsafe_allow_html=True)
+                # Sauvegarder dans Firebase
+                profile_ref.set({
+                    'profile_image': img_str,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                })
                 
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # Upload de nouvelle photo
-                uploaded_file = st.file_uploader(
-                    "Changer la photo",
-                    type=['png', 'jpg', 'jpeg'],
-                    key="profile_photo_upload"
-                )
-                
-                if uploaded_file is not None:
-                    import base64
-                    from PIL import Image
-                    import io
-                    
-                    # Convertir en base64
-                    image = Image.open(uploaded_file)
-                    # Redimensionner
-                    image.thumbnail((200, 200))
-                    buffered = io.BytesIO()
-                    image.save(buffered, format="PNG")
-                    img_str = base64.b64encode(buffered.getvalue()).decode()
-                    
-                    # Sauvegarder dans Firebase
-                    profile_ref.set({
-                        'profile_image': img_str,
-                        'updated_at': st.session_state.get('timestamp', 0)
-                    })
-                    
-                    st.success("✅ Photo de profil mise à jour")
-                    st.rerun()
+                st.success("✅ Photo de profil mise à jour")
+                st.rerun()
         
         except Exception as e:
             st.error(f"Erreur : {e}")
@@ -298,7 +298,11 @@ with tabs[2]:
                     
                     st.markdown(f"""
                     <div class="notification-item {'unread' if not read else ''}" style='
-                        border-left-color: {border_color};
+                        border-left: 4px solid {border_color};
+                        background: rgba(102, 126, 234, 0.1);
+                        padding: 15px;
+                        border-radius: 8px;
+                        margin: 10px 0;
                     '>
                         <div style='font-weight: bold;'>{notif.get('title', '')}</div>
                         <div>{notif.get('message', '')}</div>
