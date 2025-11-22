@@ -6,21 +6,25 @@ import time
 def init_firebase():
     """Initialise Firebase si ce n'est pas déjà fait"""
     if not firebase_admin._apps:
-        firebase_secrets = st.secrets["firebase"]
-        cred_dict = {
-            "type": firebase_secrets["type"],
-            "project_id": firebase_secrets["project_id"],
-            "private_key_id": firebase_secrets["private_key_id"],
-            "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
-            "client_email": firebase_secrets["client_email"],
-            "client_id": firebase_secrets["client_id"],
-            "auth_uri": firebase_secrets["auth_uri"],
-            "token_uri": firebase_secrets["token_uri"],
-            "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
-        }
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred)
+        try:
+            firebase_secrets = st.secrets["firebase"]
+            cred_dict = {
+                "type": firebase_secrets["type"],
+                "project_id": firebase_secrets["project_id"],
+                "private_key_id": firebase_secrets["private_key_id"],
+                "private_key": firebase_secrets["private_key"].replace("\\n", "\n"),
+                "client_email": firebase_secrets["client_email"],
+                "client_id": firebase_secrets["client_id"],
+                "auth_uri": firebase_secrets["auth_uri"],
+                "token_uri": firebase_secrets["token_uri"],
+                "auth_provider_x509_cert_url": firebase_secrets["auth_provider_x509_cert_url"],
+                "client_x509_cert_url": firebase_secrets["client_x509_cert_url"]
+            }
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            st.error(f"Erreur d'initialisation Firebase: {str(e)}")
+            return None
     
     return firestore.client()
 
