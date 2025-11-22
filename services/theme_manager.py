@@ -21,6 +21,7 @@ COULEURS_DISPONIBLES = {
     "Indigo": {"primary": "#5A67D8", "secondary": "#434190"},
 }
 
+
 def init_theme_state():
     """Initialise le thème"""
     if 'theme_mode' not in st.session_state:
@@ -29,6 +30,7 @@ def init_theme_state():
         st.session_state.theme_color = 'Violet'
     if 'theme_initialized' not in st.session_state:
         st.session_state.theme_initialized = False
+
 
 def load_user_theme_preferences(username):
     """Charge les préférences depuis Firebase"""
@@ -49,6 +51,7 @@ def load_user_theme_preferences(username):
     except Exception as e:
         print(f"Erreur chargement thème: {e}")
 
+
 def save_user_theme_preferences(username, mode, color):
     """Sauvegarde dans Firebase"""
     if not FIREBASE_AVAILABLE:
@@ -67,10 +70,12 @@ def save_user_theme_preferences(username, mode, color):
         print(f"Erreur sauvegarde: {e}")
         return False
 
+
 def get_theme_colors():
     """Retourne les couleurs actuelles"""
     color_name = st.session_state.get('theme_color', 'Violet')
     return COULEURS_DISPONIBLES.get(color_name, COULEURS_DISPONIBLES['Violet'])
+
 
 def apply_global_theme():
     """Applique le thème CSS"""
@@ -241,6 +246,7 @@ def apply_global_theme():
         }}
     </style>
     """, unsafe_allow_html=True)
+
 
 def create_theme_selector():
     """Sélecteur de thème dans la sidebar"""
