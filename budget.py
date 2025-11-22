@@ -32,7 +32,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # --- FONCTIONS FIRESTORE ---
-def add_expense_to_firestore(category, amount, frequency, description, month, year, timestamp=None):
+def add_expense_to_firestore(category, amount, frequency, description, month, year, user, timestamp=None):
     expense_ref = db.collection('expenses').document()
     expense_ref.set({
         'Catégories': category,
@@ -41,20 +41,26 @@ def add_expense_to_firestore(category, amount, frequency, description, month, ye
         'Description': description,
         'Mois': month,
         'Année': int(year),
+        'Utilisateur': user,
         'Timestamp': timestamp if timestamp else time.time()
     })
+    # Ajouter une notification
+    add_notification(f"Dépense ajoutée", f"{user} a ajouté {amount}€ dans {category}", user)
 
-def add_revenue_to_firestore(source, amount, month, year, timestamp=None):
+def add_revenue_to_firestore(source, amount, month, year, user, timestamp=None):
     revenue_ref = db.collection('revenues').document()
     revenue_ref.set({
         'Source': source,
         'Montant': float(amount),
         'Mois': month,
         'Année': int(year),
+        'Utilisateur': user,
         'Timestamp': timestamp if timestamp else time.time()
     })
+    # Ajouter une notification
+    add_notification(f"Revenu ajouté", f"{user} a ajouté {amount}€ de {source}", user)
 
-def update_expense_in_firestore(doc_id, category, amount, frequency, description, month, year):
+def update_expense_in_firestore(doc_id, category, amount, frequency, description, month, year, user):
     expense_ref = db.collection('expenses').document(doc_id)
     expense_ref.update({
         'Catégories': category,
@@ -62,23 +68,35 @@ def update_expense_in_firestore(doc_id, category, amount, frequency, description
         'Fréquence': frequency,
         'Description': description,
         'Mois': month,
-        'Année': int(year)
+        'Année': int(year),
+        'ModifiéPar': user,
+        'DateModification': time.time()
     })
+    # Ajouter une notification
+    add_notification(f"Dépense modifiée", f"{user} a modifié une dépense de {amount}€ dans {category}", user)
 
-def update_revenue_in_firestore(doc_id, source, amount, month, year):
+def update_revenue_in_firestore(doc_id, source, amount, month, year, user):
     revenue_ref = db.collection('revenues').document(doc_id)
     revenue_ref.update({
         'Source': source,
         'Montant': float(amount),
         'Mois': month,
-        'Année': int(year)
+        'Année': int(year),
+        'ModifiéPar': user,
+        'DateModification': time.time()
     })
+    # Ajouter une notification
+    add_notification(f"Revenu modifié", f"{user} a modifié un revenu de {amount}€ de {source}", user)
 
-def delete_expense_from_firestore(doc_id):
+def delete_expense_from_firestore(doc_id, user, category, amount):
     db.collection('expenses').document(doc_id).delete()
+    # Ajouter une notification
+    add_notification(f"Dépense supprimée", f"{user} a supprimé une dépense de {amount}€ dans {category}", user)
 
-def delete_revenue_from_firestore(doc_id):
+def delete_revenue_from_firestore(doc_id, user, source, amount):
     db.collection('revenues').document(doc_id).delete()
+    # Ajouter une notification
+    add_notification(f"Revenu supprimé", f"{user} a supprimé un revenu de {amount}€ de {source}", user)
 
 def fetch_expenses_from_firestore():
     expenses_ref = db.collection('expenses')
