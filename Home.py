@@ -26,17 +26,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Vérifier les imports
-if not IMPORTS_OK:
-    st.stop()
-
 # Initialiser Firebase
-try:
-    init_firebase()
-except Exception as e:
-    st.error(f"⚠️ Erreur Firebase: {str(e)}")
-    st.info("Vérifiez votre fichier .streamlit/secrets.toml")
-    st.stop()
+init_firebase()
 
 # Appliquer le thème
 apply_dark_theme()
