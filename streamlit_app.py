@@ -71,17 +71,20 @@ st.markdown("""
         padding: 25px;
         border-radius: 20px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         cursor: pointer;
         height: 180px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        border: 2px solid transparent;
     }
     
     .module-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 30px rgba(102, 126, 234, 0.3);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.5);
+        border: 2px solid #667eea;
+        background: linear-gradient(135deg, #3d4152 0%, #2d3142 100%);
     }
     
     .dashboard-header {
