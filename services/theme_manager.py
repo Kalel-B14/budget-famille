@@ -1,301 +1,218 @@
-"""
-Gestionnaire de thème global pour Famileasy
-"""
-
 import streamlit as st
 
-try:
-    from firebase_admin import firestore
-    FIREBASE_AVAILABLE = True
-except ImportError:
-    FIREBASE_AVAILABLE = False
-
-COULEURS_DISPONIBLES = {
-    "Violet": {"primary": "#667eea", "secondary": "#764ba2"},
-    "Bleu": {"primary": "#4A90E2", "secondary": "#2E5C8A"},
-    "Vert": {"primary": "#48BB78", "secondary": "#2F855A"},
-    "Rose": {"primary": "#ED64A6", "secondary": "#B83280"},
-    "Orange": {"primary": "#ED8936", "secondary": "#C05621"},
-    "Rouge": {"primary": "#F56565", "secondary": "#C53030"},
-    "Turquoise": {"primary": "#38B2AC", "secondary": "#2C7A7B"},
-    "Indigo": {"primary": "#5A67D8", "secondary": "#434190"},
+# Palettes de couleurs
+PALETTES = {
+    'Violet': {
+        'primary': '#667eea',
+        'secondary': '#764ba2',
+        'accent': '#8b5cf6',
+        'gradient': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    },
+    'Bleu': {
+        'primary': '#4299e1',
+        'secondary': '#3182ce',
+        'accent': '#2b6cb0',
+        'gradient': 'linear-gradient(135deg, #4299e1 0%, #3182ce 100%)'
+    },
+    'Vert': {
+        'primary': '#48bb78',
+        'secondary': '#38a169',
+        'accent': '#2f855a',
+        'gradient': 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)'
+    },
+    'Rose': {
+        'primary': '#ed64a6',
+        'secondary': '#d53f8c',
+        'accent': '#b83280',
+        'gradient': 'linear-gradient(135deg, #ed64a6 0%, #d53f8c 100%)'
+    },
+    'Rouge': {
+        'primary': '#f56565',
+        'secondary': '#e53e3e',
+        'accent': '#c53030',
+        'gradient': 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)'
+    }
 }
 
-
-def init_theme_state():
-    """Initialise le thème"""
-    if 'theme_mode' not in st.session_state:
-        st.session_state.theme_mode = 'dark'
-    if 'theme_color' not in st.session_state:
-        st.session_state.theme_color = 'Violet'
-    if 'theme_initialized' not in st.session_state:
-        st.session_state.theme_initialized = False
-
-
-def load_user_theme_preferences(username):
-    """Charge les préférences depuis Firebase"""
-    if not FIREBASE_AVAILABLE:
-        return
+def get_theme_styles(mode='dark', palette_name='Violet'):
+    """Génère les styles CSS selon le thème choisi"""
     
-    try:
-        db = firestore.client()
-        theme_ref = db.collection('user_theme_preferences').document(username)
-        theme_doc = theme_ref.get()
-        
-        if theme_doc.exists:
-            theme_data = theme_doc.to_dict()
-            st.session_state.theme_mode = theme_data.get('mode', 'dark')
-            st.session_state.theme_color = theme_data.get('color', 'Violet')
-        
-        st.session_state.theme_initialized = True
-    except Exception as e:
-        print(f"Erreur chargement thème: {e}")
-
-
-def save_user_theme_preferences(username, mode, color):
-    """Sauvegarde dans Firebase"""
-    if not FIREBASE_AVAILABLE:
-        return False
+    palette = PALETTES.get(palette_name, PALETTES['Violet'])
     
-    try:
-        db = firestore.client()
-        theme_ref = db.collection('user_theme_preferences').document(username)
-        theme_ref.set({
-            'mode': mode,
-            'color': color,
-            'updated_at': firestore.SERVER_TIMESTAMP
-        })
-        return True
-    except Exception as e:
-        print(f"Erreur sauvegarde: {e}")
-        return False
-
-
-def get_theme_colors():
-    """Retourne les couleurs actuelles"""
-    color_name = st.session_state.get('theme_color', 'Violet')
-    return COULEURS_DISPONIBLES.get(color_name, COULEURS_DISPONIBLES['Violet'])
-
-
-def apply_global_theme():
-    """Applique le thème CSS"""
-    init_theme_state()
-    
-    if 'user_profile' in st.session_state and st.session_state.user_profile:
-        if not st.session_state.get('theme_initialized', False):
-            load_user_theme_preferences(st.session_state.user_profile)
-    
-    colors = get_theme_colors()
-    mode = st.session_state.get('theme_mode', 'dark')
-    
+    # Couleurs selon le mode
     if mode == 'dark':
-        bg_color = "#0e1117"
-        secondary_bg = "#1a1d24"
-        card_bg = "#1f2230"
-        text_color = "#ffffff"
-        text_secondary = "#a0a0a0"
-        border_color = "#2d3142"
-    else:
-        bg_color = "#ffffff"
-        secondary_bg = "#f0f2f6"
-        card_bg = "#ffffff"
-        text_color = "#000000"
-        text_secondary = "#666666"
-        border_color = "#e0e0e0"
+        bg_color = '#1a1d24'
+        text_color = '#e0e0e0'
+        card_bg = 'linear-gradient(135deg, #2d3142 0%, #1f2230 100%)'
+        card_hover = 'linear-gradient(135deg, #3d4152 0%, #2d3142 100%)'
+        input_bg = '#2d3142'
+        border_color = '#3d4152'
+    else:  # light
+        bg_color = '#f7fafc'
+        text_color = '#2d3748'
+        card_bg = 'linear-gradient(135deg, #ffffff 0%, #f7fafc 100%)'
+        card_hover = 'linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%)'
+        input_bg = '#ffffff'
+        border_color = '#e2e8f0'
     
-    st.markdown(f"""
+    return f"""
     <style>
-        :root {{
-            --primary-color: {colors['primary']};
-            --secondary-color: {colors['secondary']};
-            --bg-color: {bg_color};
-            --secondary-bg: {secondary_bg};
-            --card-bg: {card_bg};
-            --text-color: {text_color};
-            --text-secondary: {text_secondary};
-            --border-color: {border_color};
-        }}
-        
+        /* Configuration de base */
         .stApp {{
-            background-color: var(--bg-color) !important;
-        }}
-        
-        [data-testid="stSidebar"] {{
-            background-color: var(--secondary-bg) !important;
+            background-color: {bg_color};
+            color: {text_color};
         }}
         
         h1, h2, h3, h4, h5, h6 {{
-            color: var(--text-color) !important;
+            color: {text_color} !important;
         }}
         
-        p, span, div, label {{
-            color: var(--text-color) !important;
+        /* Cartes */
+        .metric-card {{
+            background: {card_bg};
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
         }}
         
-        [data-testid="stMetric"] {{
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
-            padding: 20px !important;
-            border-radius: 10px !important;
+        .module-card {{
+            background: {card_bg};
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            cursor: pointer;
+            height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border: 2px solid transparent;
         }}
         
-        [data-testid="stMetric"] label, 
-        [data-testid="stMetric"] [data-testid="stMetricValue"] {{
-            color: white !important;
+        .module-card:hover {{
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 12px 40px {palette['primary']}80;
+            border: 2px solid {palette['primary']};
+            background: {card_hover};
         }}
         
-        .stButton button {{
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            padding: 10px 20px !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
+        .dashboard-header {{
+            background: {palette['gradient']};
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }}
         
-        .stButton button:hover {{
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2) !important;
+        /* Boutons */
+        .stButton > button {{
+            background: {palette['gradient']};
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
         }}
         
-        .stTextInput input, .stNumberInput input, .stSelectbox select {{
-            background-color: var(--card-bg) !important;
-            color: var(--text-color) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 8px !important;
+        .stButton > button:hover {{
+            opacity: 0.9;
+            box-shadow: 0 4px 12px {palette['primary']}66;
+            transform: translateY(-2px);
         }}
         
+        /* Formulaires */
+        .stTextInput > div > div > input,
+        .stSelectbox > div > div > select,
+        .stNumberInput > div > div > input,
+        .stTextArea > div > div > textarea {{
+            background-color: {input_bg};
+            color: {text_color};
+            border: 1px solid {border_color};
+            border-radius: 8px;
+        }}
+        
+        /* Tabs */
         .stTabs [data-baseweb="tab-list"] {{
-            background-color: var(--secondary-bg) !important;
+            gap: 10px;
+            background-color: {bg_color};
         }}
         
         .stTabs [data-baseweb="tab"] {{
-            color: var(--text-color) !important;
+            background-color: {input_bg};
+            color: {text_color};
+            border-radius: 10px 10px 0 0;
+            padding: 10px 20px;
         }}
         
         .stTabs [aria-selected="true"] {{
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
-            color: white !important;
+            background: {palette['gradient']};
+            color: white;
         }}
         
-        .dashboard-card {{
-            background: var(--card-bg) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 12px !important;
-            padding: 20px !important;
-            transition: all 0.3s ease !important;
-            cursor: pointer !important;
-            min-height: 150px !important;
+        /* Métriques */
+        [data-testid="stMetricValue"] {{
+            font-size: 28px;
+            color: {text_color};
         }}
         
-        .dashboard-card:hover {{
-            transform: translateY(-5px) !important;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15) !important;
-            border-color: var(--primary-color) !important;
+        [data-testid="stMetricLabel"] {{
+            color: {text_color};
+            opacity: 0.7;
         }}
         
-        .dashboard-card h3 {{
-            color: var(--primary-color) !important;
+        /* Dataframes */
+        .dataframe {{
+            background-color: {input_bg} !important;
+            color: {text_color} !important;
         }}
         
-        .header-container {{
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
-            border-radius: 20px !important;
-            padding: 30px !important;
-            margin-bottom: 30px !important;
+        /* Info/Warning/Error boxes */
+        .stAlert {{
+            background-color: {input_bg};
+            color: {text_color};
+            border-left: 4px solid {palette['primary']};
         }}
         
-        .header-container h1 {{
-            color: white !important;
-        }}
-        
-        .profile-picture {{
-            width: 50px !important;
-            height: 50px !important;
-            border-radius: 50% !important;
-            border: 3px solid white !important;
-            object-fit: cover !important;
-        }}
-        
-        @keyframes slideIn {{
-            from {{
-                opacity: 0;
-                transform: translateY(-20px);
-            }}
-            to {{
-                opacity: 1;
-                transform: translateY(0);
-            }}
-        }}
-        
-        .animate-in {{
-            animation: slideIn 0.5s ease-out !important;
-        }}
-        
-        ::-webkit-scrollbar {{
-            width: 10px !important;
-        }}
-        
-        ::-webkit-scrollbar-track {{
-            background: var(--secondary-bg) !important;
-        }}
-        
-        ::-webkit-scrollbar-thumb {{
-            background: var(--primary-color) !important;
-            border-radius: 5px !important;
-        }}
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def create_theme_selector():
-    """Sélecteur de thème dans la sidebar"""
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🎨 Thème")
-    
-    current_mode = st.session_state.get('theme_mode', 'dark')
-    mode_options = {"Mode Sombre 🌙": "dark", "Mode Clair ☀️": "light"}
-    
-    selected = st.sidebar.radio(
-        "Mode d'affichage",
-        list(mode_options.keys()),
-        index=0 if current_mode == "dark" else 1,
-        key="theme_mode_selector"
-    )
-    new_mode = mode_options[selected]
-    
-    current_color = st.session_state.get('theme_color', 'Violet')
-    new_color = st.sidebar.selectbox(
-        "Couleur primaire",
-        list(COULEURS_DISPONIBLES.keys()),
-        index=list(COULEURS_DISPONIBLES.keys()).index(current_color),
-        key="theme_color_selector"
-    )
-    
-    if new_mode != st.session_state.theme_mode or new_color != st.session_state.theme_color:
-        st.session_state.theme_mode = new_mode
-        st.session_state.theme_color = new_color
-        
-        if 'user_profile' in st.session_state and st.session_state.user_profile:
-            if save_user_theme_preferences(st.session_state.user_profile, new_mode, new_color):
-                st.sidebar.success("✅ Thème sauvegardé")
-        
-        st.rerun()
-    
-    colors = get_theme_colors()
-    st.sidebar.markdown(
-        f"""
-        <div style='
-            background: linear-gradient(135deg, {colors['primary']}, {colors['secondary']});
-            padding: 20px;
+        /* Prévisualisation couleur */
+        .color-preview {{
+            width: 100%;
+            height: 60px;
             border-radius: 10px;
-            text-align: center;
+            background: {palette['gradient']};
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
             font-weight: bold;
-            margin-top: 10px;
-        '>
-            Aperçu du thème
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            margin: 10px 0;
+        }}
+    </style>
+    """
+
+def apply_theme(user_profile=None):
+    """Applique le thème de l'utilisateur sur toute l'application"""
+    try:
+        from parametres_service import get_user_theme
+        
+        if user_profile:
+            user_theme = get_user_theme(user_profile)
+            mode = user_theme.get('mode', 'dark') if user_theme else 'dark'
+            palette = user_theme.get('palette', 'Violet') if user_theme else 'Violet'
+        else:
+            mode = 'dark'
+            palette = 'Violet'
+        
+        # Appliquer les styles
+        st.markdown(get_theme_styles(mode, palette), unsafe_allow_html=True)
+        
+        return mode, palette
+    except:
+        # Thème par défaut en cas d'erreur
+        st.markdown(get_theme_styles('dark', 'Violet'), unsafe_allow_html=True)
+        return 'dark', 'Violet'
+
+def get_palette_colors(palette_name):
+    """Retourne les couleurs d'une palette"""
+    return PALETTES.get(palette_name, PALETTES['Violet'])
