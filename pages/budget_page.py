@@ -18,7 +18,7 @@ try:
                          get_unread_notifications_count)
     from budget_service import (add_expense, add_revenue, fetch_expenses, fetch_revenues,
                                 delete_expense, delete_revenue, CATEGORIES_DEPENSES)
-    from theme_manager import apply_global_theme  # ✅ CORRECTION
+    from theme_manager import apply_theme
     SERVICES_OK = True
 except ImportError as e:
     st.error(f"⚠️ Erreur d'import: {str(e)}")
@@ -38,15 +38,19 @@ if 'user_profile' not in st.session_state or st.session_state.user_profile is No
         st.switch_page("streamlit_app.py")
     st.stop()
 
-# Initialiser Firebase
+# Initialiser Firebase et appliquer le thème
 if SERVICES_OK:
     init_firebase()
-    # Appliquer le thème de l'utilisateur
-    apply_global_theme()  # ✅ CORRECTION
+    # APPLIQUER LE THÈME IMMÉDIATEMENT
+    current_mode, current_palette = apply_theme(st.session_state.user_profile)
 else:
-    # Thème par défaut
-    from theme_manager import apply_global_theme  # ✅ CORRECTION
-    apply_global_theme()  # ✅ CORRECTION
+    # Thème par défaut sans Firebase
+    current_mode, current_palette = ('dark', 'Violet')
+    st.markdown("""
+    <style>
+        .stApp { background-color: #1a1d24; color: #e0e0e0; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- STYLES ---
 st.markdown("""
@@ -59,13 +63,6 @@ st.markdown("""
     @keyframes slideIn {
         from { opacity: 0; transform: translateX(-20px); }
         to { opacity: 1; transform: translateX(0); }
-    }
-    
-    .metric-card {
-        background: rgba(102, 126, 234, 0.1);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 10px 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -88,22 +85,22 @@ with col_title:
 with col_notif:
     if SERVICES_OK:
         unread_count = get_unread_notifications_count()
-
+        
         if st.button(f"🔔 ({unread_count})" if unread_count > 0 else "🔔"):
             st.session_state.show_notifications = not st.session_state.get('show_notifications', False)
-
+        
         # Panel de notifications
         if st.session_state.get('show_notifications', False):
             st.markdown("<div style='background-color: #2d3142; border-radius: 10px; padding: 15px; margin-top: 10px; max-height: 300px; overflow-y: auto;'>", unsafe_allow_html=True)
             notifications = get_notifications()
-
+            
             if notifications:
                 for notif in notifications[:5]:  # Afficher les 5 dernières
                     if notif.get('module') in ['budget', 'general']:
                         timestamp = notif.get('timestamp', 0)
                         time_ago = datetime.fromtimestamp(timestamp).strftime("%d/%m %H:%M")
                         border_color = "#667eea" if notif.get('read', False) else "#ff4444"
-
+                        
                         st.markdown(f"""
                         <div style='background-color: #1f2230; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid {border_color};'>
                             <div style='font-weight: bold; color: #ffffff; font-size: 14px;'>{notif.get('title', '')}</div>
@@ -111,12 +108,12 @@ with col_notif:
                             <div style='color: #707070; font-size: 11px; margin-top: 5px;'>{time_ago}</div>
                         </div>
                         """, unsafe_allow_html=True)
-
+                        
                         if not notif.get('read', False):
                             mark_notification_as_read(notif['doc_id'])
             else:
                 st.info("Aucune notification")
-
+            
             st.markdown("</div>", unsafe_allow_html=True)
 
 st.divider()
@@ -149,60 +146,60 @@ with tabs[0]:
     # Sélection de l'année
     selected_year = st.selectbox("📅 Année", options=list(range(2020, 2031)), 
                                  index=list(range(2020, 2031)).index(st.session_state.selected_year))
-
+    
     st.session_state.selected_year = selected_year
-
+    
     # Préparer les données
     df_expenses = pd.DataFrame(st.session_state.expenses)
     df_revenues = pd.DataFrame(st.session_state.revenues)
-
+    
     # Filtrer par année
     if not df_expenses.empty and 'Année' in df_expenses.columns:
         df_expenses_filtered = df_expenses[df_expenses['Année'] == selected_year]
     else:
         df_expenses_filtered = pd.DataFrame()
-
+    
     if not df_revenues.empty and 'Année' in df_revenues.columns:
         df_revenues_filtered = df_revenues[df_revenues['Année'] == selected_year]
     else:
         df_revenues_filtered = pd.DataFrame()
-
+    
     # Métriques
     total_revenus = df_revenues_filtered['Montant'].sum() if not df_revenues_filtered.empty else 0
     total_depenses = df_expenses_filtered['Montant'].sum() if not df_expenses_filtered.empty else 0
     reste_a_vivre = total_revenus - total_depenses
     taux_epargne = (reste_a_vivre / total_revenus * 100) if total_revenus > 0 else 0
-
+    
     col1, col2, col3, col4 = st.columns(4)
-
+    
     with col1:
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("💶 Revenus Totaux", f"{total_revenus:,.0f} €")
         st.markdown("</div>", unsafe_allow_html=True)
-
+    
     with col2:
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("💸 Dépenses Totales", f"{total_depenses:,.0f} €")
         st.markdown("</div>", unsafe_allow_html=True)
-
+    
     with col3:
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("✨ Reste à Vivre", f"{reste_a_vivre:,.0f} €", 
                  delta=f"{taux_epargne:.1f}%" if reste_a_vivre >= 0 else None)
         st.markdown("</div>", unsafe_allow_html=True)
-
+    
     with col4:
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         pourcentage_depense = (total_depenses / total_revenus * 100) if total_revenus > 0 else 0
         st.metric("📊 % Dépensé", f"{pourcentage_depense:.0f}%")
         st.markdown("</div>", unsafe_allow_html=True)
-
+    
     st.divider()
-
+    
     # Graphiques
     if not df_expenses_filtered.empty or not df_revenues_filtered.empty:
         col_g1, col_g2 = st.columns(2)
-
+        
         with col_g1:
             st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
             st.subheader("Revenus vs Dépenses")
@@ -216,7 +213,7 @@ with tabs[0]:
                             paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#e0e0e0'))
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
-
+        
         with col_g2:
             if not df_expenses_filtered.empty:
                 st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
@@ -235,7 +232,7 @@ with tabs[0]:
 # ===== ONGLET 2: REVENUS =====
 with tabs[1]:
     st.subheader(f"📋 Gestion des Revenus - {st.session_state.selected_year}")
-
+    
     # Formulaire d'ajout
     with st.expander("➕ Ajouter un revenu", expanded=False):
         with st.form("add_revenue", clear_on_submit=True):
@@ -248,14 +245,15 @@ with tabs[1]:
                 rev_month = st.selectbox("Mois", options=MOIS)
                 rev_year = st.number_input("Année", min_value=2020, max_value=2030, 
                                           value=st.session_state.selected_year)
-
+            
             if st.form_submit_button("💾 Enregistrer"):
                 if SERVICES_OK:
-                    add_revenue(rev_source, rev_amount, rev_month, rev_year, 
+                    success = add_revenue(rev_source, rev_amount, rev_month, rev_year, 
                                         st.session_state.user_profile)
-                    st.success("✅ Revenu ajouté avec succès !")
-                    time.sleep(1)
-                    st.rerun()
+                    if success:
+                        st.success("✅ Revenu ajouté avec succès !")
+                        time.sleep(1)
+                        st.rerun()
                 else:
                     # Mode hors ligne
                     st.session_state.revenues.append({
@@ -267,13 +265,13 @@ with tabs[1]:
                     })
                     st.success("✅ Revenu ajouté (mode hors ligne)")
                     st.rerun()
-
+    
     # Affichage des revenus
     if st.session_state.revenues:
         df_rev = pd.DataFrame(st.session_state.revenues)
         if 'Année' in df_rev.columns:
             df_rev_year = df_rev[df_rev['Année'] == st.session_state.selected_year]
-
+            
             if not df_rev_year.empty:
                 st.dataframe(df_rev_year[['Source', 'Montant', 'Mois', 'Utilisateur']], 
                             use_container_width=True, hide_index=True)
@@ -287,7 +285,7 @@ with tabs[1]:
 # ===== ONGLET 3: DÉPENSES =====
 with tabs[2]:
     st.subheader(f"📋 Gestion des Dépenses - {st.session_state.selected_year}")
-
+    
     # Formulaire d'ajout
     with st.expander("➕ Ajouter une dépense", expanded=False):
         with st.form("add_expense", clear_on_submit=True):
@@ -302,15 +300,16 @@ with tabs[2]:
                 exp_frequency = st.selectbox("Fréquence", 
                     options=['Mensuel', 'Annuel', 'Unique'])
                 exp_description = st.text_input("Description")
-
+            
             if st.form_submit_button("💾 Enregistrer"):
                 if SERVICES_OK:
-                    add_expense(exp_category, exp_amount, exp_frequency, 
+                    success = add_expense(exp_category, exp_amount, exp_frequency, 
                                         exp_description, exp_month, exp_year, 
                                         st.session_state.user_profile)
-                    st.success("✅ Dépense ajoutée avec succès !")
-                    time.sleep(1)
-                    st.rerun()
+                    if success:
+                        st.success("✅ Dépense ajoutée avec succès !")
+                        time.sleep(1)
+                        st.rerun()
                 else:
                     # Mode hors ligne
                     st.session_state.expenses.append({
@@ -324,13 +323,13 @@ with tabs[2]:
                     })
                     st.success("✅ Dépense ajoutée (mode hors ligne)")
                     st.rerun()
-
+    
     # Affichage des dépenses
     if st.session_state.expenses:
         df_exp = pd.DataFrame(st.session_state.expenses)
         if 'Année' in df_exp.columns:
             df_exp_year = df_exp[df_exp['Année'] == st.session_state.selected_year]
-
+            
             if not df_exp_year.empty:
                 st.dataframe(df_exp_year[['Catégories', 'Montant', 'Mois', 'Description', 'Utilisateur']], 
                             use_container_width=True, hide_index=True)
