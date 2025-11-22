@@ -136,6 +136,55 @@ def load_user_preferences(user):
         return doc.to_dict()
     return None
 
+def save_profile_image(user, image_data):
+    """Sauvegarde l'image de profil en base64"""
+    profile_ref = db.collection('user_profiles').document(user)
+    profile_ref.set({
+        'profile_image': image_data,
+        'last_update': time.time()
+    }, merge=True)
+
+def load_profile_image(user):
+    """Charge l'image de profil"""
+    profile_ref = db.collection('user_profiles').document(user)
+    doc = profile_ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        return data.get('profile_image')
+    return None
+
+def add_notification(title, message, user):
+    """Ajoute une notification"""
+    notif_ref = db.collection('notifications').document()
+    notif_ref.set({
+        'title': title,
+        'message': message,
+        'user': user,
+        'timestamp': time.time(),
+        'read': False
+    })
+
+def get_notifications():
+    """Récupère toutes les notifications"""
+    notifs_ref = db.collection('notifications').order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50)
+    docs = notifs_ref.stream()
+    notifications = []
+    for doc in docs:
+        data = doc.to_dict()
+        data['doc_id'] = doc.id
+        notifications.append(data)
+    return notifications
+
+def mark_notification_as_read(doc_id):
+    """Marque une notification comme lue"""
+    db.collection('notifications').document(doc_id).update({'read': True})
+
+def get_unread_count():
+    """Compte les notifications non lues"""
+    notifs_ref = db.collection('notifications').where('read', '==', False)
+    docs = list(notifs_ref.stream())
+    return len(docs)
+
 # --- VARIABLES ---
 MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
         'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -199,12 +248,78 @@ st.markdown("""
         justify-content: center;
         font-size: 36px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+    }
+    
+    .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
     
     .user-greeting {
         color: #ffffff;
         font-size: 18px;
         font-weight: 500;
+    }
+    
+    /* Notification bell */
+    .notification-bell {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+    }
+    
+    .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background-color: #ff4444;
+        color: white;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .notification-panel {
+        background-color: #2d3142;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 10px;
+        max-height: 400px;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .notification-item {
+        background-color: #1f2230;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border-left: 3px solid #667eea;
+    }
+    
+    .notification-item.unread {
+        border-left-color: #ff4444;
+        background-color: #2a2d3f;
+    }
+    
+    .notification-title {
+        font-weight: bold;
+        color: #ffffff;
+        margin-bottom: 5px;
+    }
+    
+    .notification-message {
+        color: #a0a0a0;
+        font-size: 14px;
+    }
+    
+    .notification-time {
+        color: #707070;
+        font-size: 12px;
+        margin-top: 5px;
     }
     
     /* Buttons */
@@ -326,25 +441,103 @@ if 'active_tab' not in st.session_state:
     st.session_state.active_tab = 0
 
 # --- EN-TÊTE AVEC PROFIL UTILISATEUR ---
-col_profile, col_title, col_year = st.columns([1, 3, 1])
+col_profile, col_title, col_notif, col_year = st.columns([1, 2, 1, 1])
 
 with col_profile:
-    st.markdown(f"""
-    <div class="user-profile">
-        <div class="user-avatar">
-            👤
+    # Charger l'image de profil
+    profile_image = load_profile_image(st.session_state.user_profile)
+    
+    if profile_image:
+        st.markdown(f"""
+        <div class="user-profile">
+            <div class="user-avatar">
+                <img src="{profile_image}" alt="Profile">
+            </div>
+            <div class="user-greeting">
+                Bonjour {st.session_state.user_profile}
+            </div>
         </div>
-        <div class="user-greeting">
-            Bonjour {st.session_state.user_profile}
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="user-profile">
+            <div class="user-avatar">
+                👤
+            </div>
+            <div class="user-greeting">
+                Bonjour {st.session_state.user_profile}
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    
+    # Upload d'image de profil
+    uploaded_image = st.file_uploader("📷 Changer la photo", type=['png', 'jpg', 'jpeg'], key="profile_img", label_visibility="collapsed")
+    if uploaded_image:
+        import base64
+        bytes_data = uploaded_image.read()
+        base64_image = base64.b64encode(bytes_data).decode()
+        image_data = f"data:image/png;base64,{base64_image}"
+        save_profile_image(st.session_state.user_profile, image_data)
+        st.success("✅ Photo mise à jour !")
+        time.sleep(1)
+        st.rerun()
+    
     if st.button("🔄 Changer de profil", use_container_width=True):
         st.session_state.user_profile = None
         st.rerun()
 
 with col_title:
     st.title("💰 Suivi du Budget Familial")
+
+with col_notif:
+    # Notifications
+    unread_count = get_unread_count()
+    
+    col_bell, col_mark = st.columns([1, 2])
+    with col_bell:
+        if st.button("🔔", key="notif_bell"):
+            st.session_state.show_notifications = not st.session_state.get('show_notifications', False)
+    
+    if unread_count > 0:
+        st.markdown(f"""
+        <div style="text-align: center; margin-top: -45px; margin-left: 25px;">
+            <span style="background-color: #ff4444; color: white; border-radius: 50%; 
+                         padding: 2px 7px; font-size: 12px; font-weight: bold;">
+                {unread_count}
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_mark:
+        if st.button("✓ Tout marquer lu", key="mark_all_read"):
+            notifications = get_notifications()
+            for notif in notifications:
+                if not notif.get('read', False):
+                    mark_notification_as_read(notif['doc_id'])
+            st.rerun()
+    
+    # Panel de notifications
+    if st.session_state.get('show_notifications', False):
+        st.markdown("<div class='notification-panel'>", unsafe_allow_html=True)
+        notifications = get_notifications()
+        
+        if notifications:
+            for notif in notifications:
+                read_class = "" if notif.get('read', False) else "unread"
+                timestamp = notif.get('timestamp', 0)
+                time_ago = datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M")
+                
+                st.markdown(f"""
+                <div class='notification-item {read_class}'>
+                    <div class='notification-title'>{notif.get('title', 'Notification')}</div>
+                    <div class='notification-message'>{notif.get('message', '')}</div>
+                    <div class='notification-time'>{time_ago}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("Aucune notification")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with col_year:
     new_year = st.selectbox("📅 Année", options=ANNEES, index=ANNEES.index(st.session_state.selected_year), key="year_selector")
@@ -538,7 +731,7 @@ with tabs[1]:
                 cancelled = st.form_submit_button("❌ Annuler", use_container_width=True)
             
             if submitted:
-                add_revenue_to_firestore(rev_source, rev_amount, rev_month, rev_year)
+                add_revenue_to_firestore(rev_source, rev_amount, rev_month, rev_year, st.session_state.user_profile)
                 st.session_state.revenues = fetch_revenues_from_firestore()
                 st.session_state.show_revenue_form = False
                 st.success("✅ Revenu ajouté avec succès !")
@@ -624,7 +817,7 @@ with tabs[1]:
                         new_month = st.selectbox("Mois", options=MOIS, index=MOIS.index(rev_data['Mois']))
                         
                         if st.form_submit_button("💾 Enregistrer les modifications"):
-                            update_revenue_in_firestore(rev_data['doc_id'], new_source, new_amount, new_month, st.session_state.selected_year)
+                            update_revenue_in_firestore(rev_data['doc_id'], new_source, new_amount, new_month, st.session_state.selected_year, st.session_state.user_profile)
                             st.session_state.revenues = fetch_revenues_from_firestore()
                             st.success("✅ Revenu modifié !")
                             time.sleep(1)
@@ -634,7 +827,7 @@ with tabs[1]:
                     st.write("")
                     st.write("")
                     if st.button("🗑️ Supprimer", key="del_rev", type="secondary"):
-                        delete_revenue_from_firestore(rev_data['doc_id'])
+                        delete_revenue_from_firestore(rev_data['doc_id'], st.session_state.user_profile, rev_data['Source'], rev_data['Montant'])
                         st.session_state.revenues = fetch_revenues_from_firestore()
                         st.success("✅ Revenu supprimé !")
                         time.sleep(1)
@@ -679,7 +872,7 @@ with tabs[2]:
             
             if submitted:
                 add_expense_to_firestore(exp_category, exp_amount, exp_frequency, 
-                                        exp_description, exp_month, exp_year)
+                                        exp_description, exp_month, exp_year, st.session_state.user_profile)
                 st.session_state.expenses = fetch_expenses_from_firestore()
                 st.session_state.show_expense_form = False
                 st.success("✅ Dépense ajoutée avec succès !")
@@ -766,7 +959,7 @@ with tabs[2]:
                         new_desc = st.text_input("Description", value=exp_data.get('Description', ''))
                         
                         if st.form_submit_button("💾 Enregistrer les modifications"):
-                            update_expense_in_firestore(exp_data['doc_id'], new_cat, new_amount, new_freq, new_desc, new_month, st.session_state.selected_year)
+                            update_expense_in_firestore(exp_data['doc_id'], new_cat, new_amount, new_freq, new_desc, new_month, st.session_state.selected_year, st.session_state.user_profile)
                             st.session_state.expenses = fetch_expenses_from_firestore()
                             st.success("✅ Dépense modifiée !")
                             time.sleep(1)
@@ -776,7 +969,7 @@ with tabs[2]:
                     st.write("")
                     st.write("")
                     if st.button("🗑️ Supprimer", key="del_exp", type="secondary"):
-                        delete_expense_from_firestore(exp_data['doc_id'])
+                        delete_expense_from_firestore(exp_data['doc_id'], st.session_state.user_profile, exp_data['Catégories'], exp_data['Montant'])
                         st.session_state.expenses = fetch_expenses_from_firestore()
                         st.success("✅ Dépense supprimée !")
                         time.sleep(1)
@@ -821,7 +1014,8 @@ with tabs[3]:
                             row.get('Fréquence', 'Unique'),
                             row.get('Description', ''),
                             row.get('Mois', 'Janvier'),
-                            int(row.get('Année', row.get('Annee', st.session_state.selected_year)))
+                            int(row.get('Année', row.get('Annee', st.session_state.selected_year))),
+                            'Import'
                         )
                         imported_count += 1
                     st.session_state.expenses = fetch_expenses_from_firestore()
@@ -850,7 +1044,8 @@ with tabs[3]:
                             row.get('Source', 'Autre'),
                             float(row.get('Montant', 0)),
                             row.get('Mois', 'Janvier'),
-                            int(row.get('Année', row.get('Annee', st.session_state.selected_year)))
+                            int(row.get('Année', row.get('Annee', st.session_state.selected_year))),
+                            'Import'
                         )
                     st.session_state.revenues = fetch_revenues_from_firestore()
                     st.success(f"✅ {len(df_import_rev)} revenus importés !")
