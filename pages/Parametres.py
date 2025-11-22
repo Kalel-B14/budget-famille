@@ -18,6 +18,7 @@ try:
                                    get_expense_categories, add_expense_category, delete_expense_category,
                                    get_revenue_sources, add_revenue_source, delete_revenue_source,
                                    get_user_theme, save_user_theme)
+    from theme_manager import apply_theme, PALETTES
     SERVICES_OK = True
 except ImportError as e:
     st.error(f"⚠️ Erreur d'import: {str(e)}")
@@ -40,102 +41,11 @@ if 'user_profile' not in st.session_state or st.session_state.user_profile is No
 # Initialiser Firebase
 if SERVICES_OK:
     init_firebase()
-
-# --- PALETTES DE COULEURS ---
-PALETTES = {
-    'Violet': {
-        'primary': '#667eea',
-        'secondary': '#764ba2',
-        'accent': '#8b5cf6',
-        'gradient': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-    },
-    'Bleu': {
-        'primary': '#4299e1',
-        'secondary': '#3182ce',
-        'accent': '#2b6cb0',
-        'gradient': 'linear-gradient(135deg, #4299e1 0%, #3182ce 100%)'
-    },
-    'Vert': {
-        'primary': '#48bb78',
-        'secondary': '#38a169',
-        'accent': '#2f855a',
-        'gradient': 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)'
-    },
-    'Rose': {
-        'primary': '#ed64a6',
-        'secondary': '#d53f8c',
-        'accent': '#b83280',
-        'gradient': 'linear-gradient(135deg, #ed64a6 0%, #d53f8c 100%)'
-    },
-    'Rouge': {
-        'primary': '#f56565',
-        'secondary': '#e53e3e',
-        'accent': '#c53030',
-        'gradient': 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)'
-    }
-}
-
-# Charger le thème utilisateur
-if SERVICES_OK:
-    user_theme = get_user_theme(st.session_state.user_profile)
-    theme_mode = user_theme.get('mode', 'dark') if user_theme else 'dark'
-    theme_palette = user_theme.get('palette', 'Violet') if user_theme else 'Violet'
+    # Appliquer le thème de l'utilisateur
+    current_mode, current_palette = apply_theme(st.session_state.user_profile)
 else:
-    theme_mode = 'dark'
-    theme_palette = 'Violet'
-
-palette = PALETTES[theme_palette]
-
-# Appliquer les styles dynamiques
-bg_color = '#1a1d24' if theme_mode == 'dark' else '#f7fafc'
-text_color = '#e0e0e0' if theme_mode == 'dark' else '#2d3748'
-card_bg = 'linear-gradient(135deg, #2d3142 0%, #1f2230 100%)' if theme_mode == 'dark' else 'linear-gradient(135deg, #ffffff 0%, #f7fafc 100%)'
-
-st.markdown(f"""
-<style>
-    .stApp {{
-        background-color: {bg_color};
-        color: {text_color};
-    }}
-    
-    h1, h2, h3 {{
-        color: {text_color} !important;
-    }}
-    
-    .metric-card {{
-        background: {card_bg};
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        margin-bottom: 20px;
-    }}
-    
-    .stButton > button {{
-        background: {palette['gradient']};
-        color: white;
-        border-radius: 10px;
-        border: none;
-    }}
-    
-    .stButton > button:hover {{
-        opacity: 0.9;
-        box-shadow: 0 4px 12px {palette['primary']}40;
-    }}
-    
-    .color-preview {{
-        width: 100%;
-        height: 60px;
-        border-radius: 10px;
-        background: {palette['gradient']};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        margin: 10px 0;
-    }}
-</style>
-""", unsafe_allow_html=True)
+    current_mode = 'dark'
+    current_palette = 'Violet'
 
 # --- EN-TÊTE ---
 col_back, col_title = st.columns([1, 5])
@@ -382,7 +292,7 @@ with tabs[4]:
             "Choisir le mode",
             options=['dark', 'light'],
             format_func=lambda x: '🌙 Mode Sombre' if x == 'dark' else '☀️ Mode Clair',
-            index=0 if theme_mode == 'dark' else 1,
+            index=0 if current_mode == 'dark' else 1,
             key="theme_mode"
         )
     
@@ -392,13 +302,16 @@ with tabs[4]:
         new_palette = st.selectbox(
             "Choisir une palette",
             options=list(PALETTES.keys()),
-            index=list(PALETTES.keys()).index(theme_palette),
+            index=list(PALETTES.keys()).index(current_palette),
             key="theme_palette"
         )
         
         # Prévisualisation de la palette
+        palette_preview = PALETTES[new_palette]
         st.markdown(f"""
-        <div class='color-preview'>
+        <div style='width: 100%; height: 60px; border-radius: 10px; 
+                    background: {palette_preview["gradient"]}; display: flex; align-items: center; 
+                    justify-content: center; color: white; font-weight: bold; margin: 10px 0;'>
             Prévisualisation: {new_palette}
         </div>
         """, unsafe_allow_html=True)
